@@ -1,2 +1,2 @@
-# methane
+# methane-capstone
 
