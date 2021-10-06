@@ -1,0 +1,220 @@
+######### PIPELINE STARTED #########
+Total Files: 58
+Total Batches: 5
+Batch size: ~ 13
+
+batch_num: 1 - start download
+	aws s3 cp s3://meeo-s5p/OFFL/L2__CH4___/2018/11/28/S5P_OFFL_L2__CH4____20181128T191103_20181128T205232_05837_01_010202_20181205T131651.nc ./nc_data/cur_batch/
+	aws s3 cp s3://meeo-s5p/OFFL/L2__CH4___/2018/11/28/S5P_OFFL_L2__CH4____20181128T205232_20181128T223402_05838_01_010202_20181205T131628.nc ./nc_data/cur_batch/
+	aws s3 cp s3://meeo-s5p/OFFL/L2__CH4___/2018/11/29/S5P_OFFL_L2__CH4____20181129T185158_20181129T203327_05851_01_010202_20181205T210656.nc ./nc_data/cur_batch/
+	aws s3 cp s3://meeo-s5p/OFFL/L2__CH4___/2018/11/29/S5P_OFFL_L2__CH4____20181129T203327_20181129T221457_05852_01_010202_20181205T221251.nc ./nc_data/cur_batch/
+	aws s3 cp s3://meeo-s5p/OFFL/L2__CH4___/2018/11/30/S5P_OFFL_L2__CH4____20181130T183253_20181130T201422_05865_01_010202_20181206T203242.nc ./nc_data/cur_batch/
+	aws s3 cp s3://meeo-s5p/OFFL/L2__CH4___/2018/11/30/S5P_OFFL_L2__CH4____20181130T201422_20181130T215552_05866_01_010202_20181206T215630.nc ./nc_data/cur_batch/
+	aws s3 cp s3://meeo-s5p/OFFL/L2__CH4___/2018/12/01/S5P_OFFL_L2__CH4____20181201T195518_20181201T213647_05880_01_010202_20181207T214949.nc ./nc_data/cur_batch/
+	aws s3 cp s3://meeo-s5p/OFFL/L2__CH4___/2018/12/02/S5P_OFFL_L2__CH4____20181202T193613_20181202T211743_05894_01_010202_20181208T211839.nc ./nc_data/cur_batch/
+	aws s3 cp s3://meeo-s5p/OFFL/L2__CH4___/2018/12/02/S5P_OFFL_L2__CH4____20181202T211743_20181202T225912_05895_01_010202_20181208T225315.nc ./nc_data/cur_batch/
+	aws s3 cp s3://meeo-s5p/OFFL/L2__CH4___/2018/12/03/S5P_OFFL_L2__CH4____20181203T191709_20181203T205838_05908_01_010202_20181209T205452.nc ./nc_data/cur_batch/
+	aws s3 cp s3://meeo-s5p/OFFL/L2__CH4___/2018/12/03/S5P_OFFL_L2__CH4____20181203T205838_20181203T224008_05909_01_010202_20181209T222934.nc ./nc_data/cur_batch/
+	aws s3 cp s3://meeo-s5p/OFFL/L2__CH4___/2018/12/04/S5P_OFFL_L2__CH4____20181204T185804_20181204T203934_05922_01_010202_20181210T204816.nc ./nc_data/cur_batch/
+	aws s3 cp s3://meeo-s5p/OFFL/L2__CH4___/2018/12/04/S5P_OFFL_L2__CH4____20181204T203934_20181204T222104_05923_01_010202_20181210T221703.nc ./nc_data/cur_batch/
+batch_num: 1 - finish download, time_taken: 0:00:51
+batch_num: 1 - start NC file load
+batch_num: 1 - end NC file load, time_taken: 0:00:06
+	file_num: 1 - 20181128T191103::20181128T205232. start_parse.
+					end_parse. shape: (356, 15), time_taken: 0:01:09
+	file_num: 2 - 20181128T205232::20181128T223402. start_parse.
+					end_parse. shape: (0, 15), time_taken: 0:01:01
+	file_num: 3 - 20181129T185158::20181129T203327. start_parse.
+					end_parse. shape: (14, 15), time_taken: 0:01:00
+	file_num: 4 - 20181129T203327::20181129T221457. start_parse.
+					end_parse. shape: (0, 15), time_taken: 0:01:02
+	file_num: 5 - 20181130T183253::20181130T201422. start_parse.
+					end_parse. shape: (0, 15), time_taken: 0:00:59
+	file_num: 6 - 20181130T201422::20181130T215552. start_parse.
+					end_parse. shape: (398, 15), time_taken: 0:01:04
+	file_num: 7 - 20181201T195518::20181201T213647. start_parse.
+					end_parse. shape: (324, 15), time_taken: 0:01:05
+	file_num: 8 - 20181202T193613::20181202T211743. start_parse.
+					end_parse. shape: (1598, 15), time_taken: 0:01:05
+	file_num: 9 - 20181202T211743::20181202T225912. start_parse.
+					end_parse. shape: (0, 15), time_taken: 0:00:59
+	file_num: 10 - 20181203T191709::20181203T205838. start_parse.
+					end_parse. shape: (898, 15), time_taken: 0:00:54
+	file_num: 11 - 20181203T205838::20181203T224008. start_parse.
+					end_parse. shape: (0, 15), time_taken: 0:01:00
+	file_num: 12 - 20181204T185804::20181204T203934. start_parse.
+					end_parse. shape: (54, 15), time_taken: 0:01:01
+	file_num: 13 - 20181204T203934::20181204T222104. start_parse.
+					end_parse. shape: (0, 15), time_taken: 0:00:52
+deleted nc files
+batch_num: 1 batch_total_time: 0:14:17 download_time: 0:00:51, file_count: 13, load_nc_time: 0:00:06, process_time: 0:13:18, cur_batch_df_shape: (3642, 15)
+#######################
+
+batch_num: 2 - start download
+	aws s3 cp s3://meeo-s5p/OFFL/L2__CH4___/2018/12/05/S5P_OFFL_L2__CH4____20181205T183900_20181205T202030_05936_01_010202_20181211T202237.nc ./nc_data/cur_batch/
+	aws s3 cp s3://meeo-s5p/OFFL/L2__CH4___/2018/12/05/S5P_OFFL_L2__CH4____20181205T202030_20181205T220200_05937_01_010202_20181211T220145.nc ./nc_data/cur_batch/
+	aws s3 cp s3://meeo-s5p/OFFL/L2__CH4___/2018/12/06/S5P_OFFL_L2__CH4____20181206T200126_20181206T214256_05951_01_010202_20181212T214252.nc ./nc_data/cur_batch/
+	aws s3 cp s3://meeo-s5p/OFFL/L2__CH4___/2018/12/07/S5P_OFFL_L2__CH4____20181207T194222_20181207T212352_05965_01_010202_20181213T212938.nc ./nc_data/cur_batch/
+	aws s3 cp s3://meeo-s5p/OFFL/L2__CH4___/2018/12/08/S5P_OFFL_L2__CH4____20181208T192318_20181208T210448_05979_01_010202_20181214T211446.nc ./nc_data/cur_batch/
+	aws s3 cp s3://meeo-s5p/OFFL/L2__CH4___/2018/12/08/S5P_OFFL_L2__CH4____20181208T210448_20181208T224618_05980_01_010202_20181214T225649.nc ./nc_data/cur_batch/
+	aws s3 cp s3://meeo-s5p/OFFL/L2__CH4___/2018/12/09/S5P_OFFL_L2__CH4____20181209T190414_20181209T204544_05993_01_010202_20181217T102408.nc ./nc_data/cur_batch/
+	aws s3 cp s3://meeo-s5p/OFFL/L2__CH4___/2018/12/09/S5P_OFFL_L2__CH4____20181209T204544_20181209T222714_05994_01_010202_20181216T201350.nc ./nc_data/cur_batch/
+	aws s3 cp s3://meeo-s5p/OFFL/L2__CH4___/2018/12/11/S5P_OFFL_L2__CH4____20181211T182608_20181211T200737_06021_01_010202_20181217T233037.nc ./nc_data/cur_batch/
+	aws s3 cp s3://meeo-s5p/OFFL/L2__CH4___/2018/12/11/S5P_OFFL_L2__CH4____20181211T200737_20181211T214907_06022_01_010202_20181217T231738.nc ./nc_data/cur_batch/
+	aws s3 cp s3://meeo-s5p/OFFL/L2__CH4___/2018/12/12/S5P_OFFL_L2__CH4____20181212T194834_20181212T213004_06036_01_010202_20181218T212428.nc ./nc_data/cur_batch/
+	aws s3 cp s3://meeo-s5p/OFFL/L2__CH4___/2018/12/13/S5P_OFFL_L2__CH4____20181213T192931_20181213T211101_06050_01_010202_20181219T211500.nc ./nc_data/cur_batch/
+	aws s3 cp s3://meeo-s5p/OFFL/L2__CH4___/2018/12/13/S5P_OFFL_L2__CH4____20181213T211101_20181213T225231_06051_01_010202_20181219T224730.nc ./nc_data/cur_batch/
+batch_num: 2 - finish download, time_taken: 0:00:55
+batch_num: 2 - start NC file load
+batch_num: 2 - end NC file load, time_taken: 0:00:07
+	file_num: 1 - 20181205T183900::20181205T202030. start_parse.
+					end_parse. shape: (0, 15), time_taken: 0:01:00
+	file_num: 2 - 20181205T202030::20181205T220200. start_parse.
+					end_parse. shape: (36, 15), time_taken: 0:01:03
+	file_num: 3 - 20181206T200126::20181206T214256. start_parse.
+					end_parse. shape: (823, 15), time_taken: 0:01:05
+	file_num: 4 - 20181207T194222::20181207T212352. start_parse.
+					end_parse. shape: (943, 15), time_taken: 0:01:05
+	file_num: 5 - 20181208T192318::20181208T210448. start_parse.
+					end_parse. shape: (967, 15), time_taken: 0:01:03
+	file_num: 6 - 20181208T210448::20181208T224618. start_parse.
+					end_parse. shape: (0, 15), time_taken: 0:00:59
+	file_num: 7 - 20181209T190414::20181209T204544. start_parse.
+					end_parse. shape: (109, 15), time_taken: 0:01:01
+	file_num: 8 - 20181209T204544::20181209T222714. start_parse.
+					end_parse. shape: (0, 15), time_taken: 0:01:01
+	file_num: 9 - 20181211T182608::20181211T200737. start_parse.
+					end_parse. shape: (0, 15), time_taken: 0:00:59
+	file_num: 10 - 20181211T200737::20181211T214907. start_parse.
+					end_parse. shape: (1101, 15), time_taken: 0:01:04
+	file_num: 11 - 20181212T194834::20181212T213004. start_parse.
+					end_parse. shape: (2014, 15), time_taken: 0:01:05
+	file_num: 12 - 20181213T192931::20181213T211101. start_parse.
+					end_parse. shape: (1851, 15), time_taken: 0:01:04
+	file_num: 13 - 20181213T211101::20181213T225231. start_parse.
+					end_parse. shape: (0, 15), time_taken: 0:00:59
+deleted nc files
+batch_num: 2 batch_total_time: 0:14:37 download_time: 0:00:55, file_count: 13, load_nc_time: 0:00:07, process_time: 0:13:34, cur_batch_df_shape: (7844, 15)
+#######################
+
+batch_num: 3 - start download
+	aws s3 cp s3://meeo-s5p/OFFL/L2__CH4___/2018/12/14/S5P_OFFL_L2__CH4____20181214T191028_20181214T205158_06064_01_010202_20181220T211509.nc ./nc_data/cur_batch/
+	aws s3 cp s3://meeo-s5p/OFFL/L2__CH4___/2018/12/14/S5P_OFFL_L2__CH4____20181214T205158_20181214T223328_06065_01_010202_20181220T222354.nc ./nc_data/cur_batch/
+	aws s3 cp s3://meeo-s5p/OFFL/L2__CH4___/2018/12/15/S5P_OFFL_L2__CH4____20181215T185125_20181215T203255_06078_01_010202_20181221T210833.nc ./nc_data/cur_batch/
+	aws s3 cp s3://meeo-s5p/OFFL/L2__CH4___/2018/12/15/S5P_OFFL_L2__CH4____20181215T203255_20181215T221425_06079_01_010202_20181221T222245.nc ./nc_data/cur_batch/
+	aws s3 cp s3://meeo-s5p/OFFL/L2__CH4___/2018/12/16/S5P_OFFL_L2__CH4____20181216T183223_20181216T201353_06092_01_010202_20181222T203501.nc ./nc_data/cur_batch/
+	aws s3 cp s3://meeo-s5p/OFFL/L2__CH4___/2018/12/16/S5P_OFFL_L2__CH4____20181216T201353_20181216T215522_06093_01_010202_20181222T220113.nc ./nc_data/cur_batch/
+	aws s3 cp s3://meeo-s5p/OFFL/L2__CH4___/2018/12/17/S5P_OFFL_L2__CH4____20181217T195450_20181217T213620_06107_01_010202_20181223T231201.nc ./nc_data/cur_batch/
+	aws s3 cp s3://meeo-s5p/OFFL/L2__CH4___/2018/12/18/S5P_OFFL_L2__CH4____20181218T193548_20181218T211718_06121_01_010202_20181224T213013.nc ./nc_data/cur_batch/
+	aws s3 cp s3://meeo-s5p/OFFL/L2__CH4___/2018/12/18/S5P_OFFL_L2__CH4____20181218T211718_20181218T225847_06122_01_010202_20181224T231102.nc ./nc_data/cur_batch/
+	aws s3 cp s3://meeo-s5p/OFFL/L2__CH4___/2018/12/19/S5P_OFFL_L2__CH4____20181219T191645_20181219T205815_06135_01_010202_20181225T211248.nc ./nc_data/cur_batch/
+	aws s3 cp s3://meeo-s5p/OFFL/L2__CH4___/2018/12/19/S5P_OFFL_L2__CH4____20181219T205815_20181219T223945_06136_01_010202_20181225T223532.nc ./nc_data/cur_batch/
+	aws s3 cp s3://meeo-s5p/OFFL/L2__CH4___/2018/12/20/S5P_OFFL_L2__CH4____20181220T185743_20181220T203913_06149_01_010202_20181227T020832.nc ./nc_data/cur_batch/
+	aws s3 cp s3://meeo-s5p/OFFL/L2__CH4___/2018/12/20/S5P_OFFL_L2__CH4____20181220T203913_20181220T222043_06150_01_010202_20181226T221545.nc ./nc_data/cur_batch/
+batch_num: 3 - finish download, time_taken: 0:00:50
+batch_num: 3 - start NC file load
+batch_num: 3 - end NC file load, time_taken: 0:00:05
+	file_num: 1 - 20181214T191028::20181214T205158. start_parse.
+					end_parse. shape: (19, 15), time_taken: 0:01:00
+	file_num: 2 - 20181214T205158::20181214T223328. start_parse.
+					end_parse. shape: (0, 15), time_taken: 0:00:58
+	file_num: 3 - 20181215T185125::20181215T203255. start_parse.
+					end_parse. shape: (82, 15), time_taken: 0:00:58
+	file_num: 4 - 20181215T203255::20181215T221425. start_parse.
+					end_parse. shape: (85, 15), time_taken: 0:00:52
+	file_num: 5 - 20181216T183223::20181216T201353. start_parse.
+					end_parse. shape: (0, 15), time_taken: 0:00:57
+	file_num: 6 - 20181216T201353::20181216T215522. start_parse.
+					end_parse. shape: (418, 15), time_taken: 0:01:02
+	file_num: 7 - 20181217T195450::20181217T213620. start_parse.
+					end_parse. shape: (736, 15), time_taken: 0:01:03
+	file_num: 8 - 20181218T193548::20181218T211718. start_parse.
+					end_parse. shape: (445, 15), time_taken: 0:01:02
+	file_num: 9 - 20181218T211718::20181218T225847. start_parse.
+					end_parse. shape: (0, 15), time_taken: 0:00:57
+	file_num: 10 - 20181219T191645::20181219T205815. start_parse.
+					end_parse. shape: (432, 15), time_taken: 0:01:00
+	file_num: 11 - 20181219T205815::20181219T223945. start_parse.
+					end_parse. shape: (0, 15), time_taken: 0:00:57
+	file_num: 12 - 20181220T185743::20181220T203913. start_parse.
+					end_parse. shape: (10, 15), time_taken: 0:00:50
+	file_num: 13 - 20181220T203913::20181220T222043. start_parse.
+					end_parse. shape: (0, 15), time_taken: 0:00:59
+deleted nc files
+batch_num: 3 batch_total_time: 0:13:38 download_time: 0:00:50, file_count: 13, load_nc_time: 0:00:05, process_time: 0:12:41, cur_batch_df_shape: (2227, 15)
+#######################
+
+batch_num: 4 - start download
+	aws s3 cp s3://meeo-s5p/OFFL/L2__CH4___/2018/12/21/S5P_OFFL_L2__CH4____20181221T183841_20181221T202011_06163_01_010202_20181227T213253.nc ./nc_data/cur_batch/
+	aws s3 cp s3://meeo-s5p/OFFL/L2__CH4___/2018/12/21/S5P_OFFL_L2__CH4____20181221T202011_20181221T220141_06164_01_010202_20181227T221127.nc ./nc_data/cur_batch/
+	aws s3 cp s3://meeo-s5p/OFFL/L2__CH4___/2018/12/22/S5P_OFFL_L2__CH4____20181222T200109_20181222T214239_06178_01_010202_20181228T215340.nc ./nc_data/cur_batch/
+	aws s3 cp s3://meeo-s5p/OFFL/L2__CH4___/2018/12/23/S5P_OFFL_L2__CH4____20181223T194208_20181223T212338_06192_01_010202_20181229T215106.nc ./nc_data/cur_batch/
+	aws s3 cp s3://meeo-s5p/OFFL/L2__CH4___/2018/12/24/S5P_OFFL_L2__CH4____20181224T192306_20181224T210436_06206_01_010202_20181230T211758.nc ./nc_data/cur_batch/
+	aws s3 cp s3://meeo-s5p/OFFL/L2__CH4___/2018/12/24/S5P_OFFL_L2__CH4____20181224T210436_20181224T224606_06207_01_010202_20181230T230611.nc ./nc_data/cur_batch/
+	aws s3 cp s3://meeo-s5p/OFFL/L2__CH4___/2018/12/25/S5P_OFFL_L2__CH4____20181225T190405_20181225T204535_06220_01_010202_20181231T211840.nc ./nc_data/cur_batch/
+	aws s3 cp s3://meeo-s5p/OFFL/L2__CH4___/2018/12/25/S5P_OFFL_L2__CH4____20181225T204535_20181225T222705_06221_01_010202_20181231T223949.nc ./nc_data/cur_batch/
+	aws s3 cp s3://meeo-s5p/OFFL/L2__CH4___/2018/12/26/S5P_OFFL_L2__CH4____20181226T184503_20181226T202633_06234_01_010202_20190101T205321.nc ./nc_data/cur_batch/
+	aws s3 cp s3://meeo-s5p/OFFL/L2__CH4___/2018/12/26/S5P_OFFL_L2__CH4____20181226T202633_20181226T220803_06235_01_010202_20190101T222305.nc ./nc_data/cur_batch/
+	aws s3 cp s3://meeo-s5p/OFFL/L2__CH4___/2018/12/27/S5P_OFFL_L2__CH4____20181227T182602_20181227T200732_06248_01_010202_20190102T202100.nc ./nc_data/cur_batch/
+	aws s3 cp s3://meeo-s5p/OFFL/L2__CH4___/2018/12/27/S5P_OFFL_L2__CH4____20181227T200732_20181227T214902_06249_01_010202_20190102T221931.nc ./nc_data/cur_batch/
+	aws s3 cp s3://meeo-s5p/OFFL/L2__CH4___/2018/12/28/S5P_OFFL_L2__CH4____20181228T194831_20181228T213001_06263_01_010202_20190103T215929.nc ./nc_data/cur_batch/
+batch_num: 4 - finish download, time_taken: 0:00:57
+batch_num: 4 - start NC file load
+batch_num: 4 - end NC file load, time_taken: 0:00:16
+	file_num: 1 - 20181221T183841::20181221T202011. start_parse.
+					end_parse. shape: (0, 15), time_taken: 0:00:50
+	file_num: 2 - 20181221T202011::20181221T220141. start_parse.
+					end_parse. shape: (305, 15), time_taken: 0:01:03
+	file_num: 3 - 20181222T200109::20181222T214239. start_parse.
+					end_parse. shape: (630, 15), time_taken: 0:00:55
+	file_num: 4 - 20181223T194208::20181223T212338. start_parse.
+					end_parse. shape: (119, 15), time_taken: 0:01:05
+	file_num: 5 - 20181224T192306::20181224T210436. start_parse.
+					end_parse. shape: (546, 15), time_taken: 0:01:04
+	file_num: 6 - 20181224T210436::20181224T224606. start_parse.
+					end_parse. shape: (0, 15), time_taken: 0:00:59
+	file_num: 7 - 20181225T190405::20181225T204535. start_parse.
+					end_parse. shape: (143, 15), time_taken: 0:01:01
+	file_num: 8 - 20181225T204535::20181225T222705. start_parse.
+					end_parse. shape: (80, 15), time_taken: 0:01:01
+	file_num: 9 - 20181226T184503::20181226T202633. start_parse.
+					end_parse. shape: (0, 15), time_taken: 0:01:00
+	file_num: 10 - 20181226T202633::20181226T220803. start_parse.
+					end_parse. shape: (313, 15), time_taken: 0:01:02
+	file_num: 11 - 20181227T182602::20181227T200732. start_parse.
+					end_parse. shape: (0, 15), time_taken: 0:00:59
+	file_num: 12 - 20181227T200732::20181227T214902. start_parse.
+					end_parse. shape: (1298, 15), time_taken: 0:01:04
+	file_num: 13 - 20181228T194831::20181228T213001. start_parse.
+					end_parse. shape: (2410, 15), time_taken: 0:01:05
+deleted nc files
+batch_num: 4 batch_total_time: 0:14:27 download_time: 0:00:57, file_count: 13, load_nc_time: 0:00:16, process_time: 0:13:13, cur_batch_df_shape: (5844, 15)
+#######################
+
+batch_num: 5 - start download
+	aws s3 cp s3://meeo-s5p/OFFL/L2__CH4___/2018/12/29/S5P_OFFL_L2__CH4____20181229T192930_20181229T211100_06277_01_010202_20190104T213718.nc ./nc_data/cur_batch/
+	aws s3 cp s3://meeo-s5p/OFFL/L2__CH4___/2018/12/29/S5P_OFFL_L2__CH4____20181229T211100_20181229T225230_06278_01_010202_20190104T230641.nc ./nc_data/cur_batch/
+	aws s3 cp s3://meeo-s5p/OFFL/L2__CH4___/2018/12/30/S5P_OFFL_L2__CH4____20181230T191030_20181230T205200_06291_01_010202_20190105T213056.nc ./nc_data/cur_batch/
+	aws s3 cp s3://meeo-s5p/OFFL/L2__CH4___/2018/12/30/S5P_OFFL_L2__CH4____20181230T205200_20181230T223330_06292_01_010202_20190105T230434.nc ./nc_data/cur_batch/
+	aws s3 cp s3://meeo-s5p/OFFL/L2__CH4___/2018/12/31/S5P_OFFL_L2__CH4____20181231T185129_20181231T203259_06305_01_010202_20190106T205413.nc ./nc_data/cur_batch/
+	aws s3 cp s3://meeo-s5p/OFFL/L2__CH4___/2018/12/31/S5P_OFFL_L2__CH4____20181231T203259_20181231T221429_06306_01_010202_20190106T223916.nc ./nc_data/cur_batch/
+batch_num: 5 - finish download, time_taken: 0:00:24
+batch_num: 5 - start NC file load
+batch_num: 5 - end NC file load, time_taken: 0:00:06
+	file_num: 1 - 20181229T192930::20181229T211100. start_parse.
+					end_parse. shape: (1602, 15), time_taken: 0:01:02
+	file_num: 2 - 20181229T211100::20181229T225230. start_parse.
+					end_parse. shape: (0, 15), time_taken: 0:00:57
+	file_num: 3 - 20181230T191030::20181230T205200. start_parse.
+					end_parse. shape: (745, 15), time_taken: 0:01:00
+	file_num: 4 - 20181230T205200::20181230T223330. start_parse.
+					end_parse. shape: (5, 15), time_taken: 0:00:58
+	file_num: 5 - 20181231T185129::20181231T203259. start_parse.
+					end_parse. shape: (11, 15), time_taken: 0:00:58
+	file_num: 6 - 20181231T203259::20181231T221429. start_parse.
+					end_parse. shape: (296, 15), time_taken: 0:01:00
+deleted nc files
+batch_num: 5 batch_total_time: 0:06:29 download_time: 0:00:24, file_count: 6, load_nc_time: 0:00:06, process_time: 0:05:57, cur_batch_df_shape: (2659, 15)
+#######################
+
+TOTAL PIPELINE TIME: 1:03:31
