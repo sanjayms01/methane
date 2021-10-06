@@ -82,6 +82,9 @@ target/
 # Data
 *.nc
 
+# Pipeline Logs
+pipeline_runs/
+
 # IPython
 profile_default/
 ipython_config.py
