@@ -57,6 +57,114 @@ else:
     print('\nAll libraries properly loaded!!', '\n')
 # -
 
+# # Aggregate Monthly Data to One Dataframe, by Year
+
+# +
+data_key_list_2018 = ['2018-11-meth.parquet.gzip',  '2018-12-meth.parquet.gzip']
+
+data_key_list_2019 = [ '2019-01-meth.parquet.gzip',  '2019-02-meth.parquet.gzip', '2019-03-meth.parquet.gzip', '2019-04-meth.parquet.gzip', '2019-05-meth.parquet.gzip',
+ '2019-06-meth.parquet.gzip', '2019-07-meth.parquet.gzip', '2019-08-meth.parquet.gzip', '2019-09-meth.parquet.gzip', '2019-10-meth.parquet.gzip', '2019-11-meth.parquet.gzip',
+ '2019-12-meth.parquet.gzip']
+
+data_key_list_2020 = [ '2020-01-meth.parquet.gzip', '2020-02-meth.parquet.gzip', '2020-03-meth.parquet.gzip', '2020-04-meth.parquet.gzip', '2020-05-meth.parquet.gzip',
+ '2020-06-meth.parquet.gzip', '2020-07-meth.parquet.gzip', '2020-08-meth.parquet.gzip', '2020-09-meth.parquet.gzip', '2020-10-meth.parquet.gzip', '2020-11-meth.parquet.gzip',
+ '2020-12-meth.parquet.gzip']
+
+data_key_list_2021 = [ '2021-01-meth.parquet.gzip', '2021-02-meth.parquet.gzip', '2021-03-meth.parquet.gzip', '2021-04-meth.parquet.gzip', '2021-05-meth.parquet.gzip',
+ '2021-06-meth.parquet.gzip', '2021-07-meth.parquet.gzip', '2021-08-meth.parquet.gzip', '2021-09-meth.parquet.gzip']
+
+# +
+# INITIALIZE FIRST DATAFRAME
+
+bucket = 'methane-capstone'
+subfolder = 'month-raw-data'
+def read_sentinel5p(subsubfolder, data_key):
+    s3_path = bucket+'/'+subfolder + '/' + subsubfolder
+    data_location = 's3://{}/{}'.format(s3_path, data_key)
+    return data_location
+
+#2018
+subsubfolder = '2018'               
+data_key = data_key_list_2018[0]    
+df_2018 = pd.read_parquet(read_sentinel5p(subsubfolder, data_key))  #read
+
+#2020
+subsubfolder = '2019'               
+data_key = data_key_list_2019[0]    
+df_2019 = pd.read_parquet(read_sentinel5p(subsubfolder, data_key))  #read
+
+#2020
+subsubfolder = '2020'               
+data_key = data_key_list_2020[0]    
+df_2020 = pd.read_parquet(read_sentinel5p(subsubfolder, data_key))  #read
+
+#2020
+subsubfolder = '2021'               
+data_key = data_key_list_2021[0]    
+df_2021 = pd.read_parquet(read_sentinel5p(subsubfolder, data_key))  #read
+
+#Describes
+print("shape: ", df_2020.shape)
+print("types: ", df_2020.dtypes)
+df_2020.head()
+
+# +
+# CONCATENATING ALL DATA BY YEAR
+
+for each in data_key_list_2018[1:]:
+    data_key = each
+    #Read
+    df_cur = pd.read_parquet(read_sentinel5p('2018', data_key_list_2018[0]))
+    #Concat df to large df
+    df_2018 = pd.concat([df_2018,df_cur], ignore_index=True)
+    
+for each in data_key_list_2019[1:]:
+    data_key = each
+    #Read
+    df_cur = pd.read_parquet(read_sentinel5p('2019', data_key_list_2019[0]))
+    #Concat df to large df
+    df_2019 = pd.concat([df_2019,df_cur], ignore_index=True)
+
+for each in data_key_list_2020[1:]:
+    data_key = each
+    #Read
+    df_cur = pd.read_parquet(read_sentinel5p('2020', data_key_list_2020[0]))
+    #Concat df to large df
+    df_2020 = pd.concat([df_2020,df_cur], ignore_index=True)
+
+for each in data_key_list_2021[1:]:
+    data_key = each
+    #Read
+    df_cur = pd.read_parquet(read_sentinel5p('2021', data_key_list_2021[0]))
+    #Concat df to large df
+    df_2021 = pd.concat([df_2021,df_cur], ignore_index=True)
+    
+#Describes
+print("2018 shape: ", df_2018.shape)
+print("2019 shape: ", df_2019.shape)
+print("2020 shape: ", df_2020.shape)
+print("2021 shape: ", df_2021.shape)
+# -
+
+# CONCATENATING ALL DATA
+df_combined = df_2018
+df_combined = pd.concat([df_combined,df_2019], ignore_index=True)
+df_combined = pd.concat([df_combined,df_2020], ignore_index=True)
+df_combined = pd.concat([df_combined,df_2021], ignore_index=True)
+print("Total shape: ", df_combined.shape)
+
+# +
+df_combined['date'] = pd.to_datetime(df_combined['time_utc']).dt.date
+groupby_date = df_combined.groupby(df_combined.date).count()
+
+plt.figure(figsize=(40,20))
+plt.bar(df_combined.date.unique(), groupby_date.time_utc)
+# -
+
+groupby_date
+
+
+
 # # Load Data In
 #
 #
