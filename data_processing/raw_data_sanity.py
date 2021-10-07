@@ -83,4 +83,6 @@ test_df.methane_mixing_ratio_bias_corrected.hist()
 
 plt.scatter(test_df.lon, test_df.lat)
 
+np.arange(1,10)
+
 
