@@ -104,9 +104,9 @@ data_key = data_key_list_2021[0]
 df_2021 = pd.read_parquet(read_sentinel5p(subsubfolder, data_key))  #read
 
 #Describes
-print("shape: ", df_2020.shape)
-print("types: ", df_2020.dtypes)
-df_2020.head()
+print("shape: ", df_2018.shape)
+print("types: ", df_2018.dtypes)
+df_2018.head()
 
 # +
 # CONCATENATING ALL DATA BY YEAR
@@ -114,28 +114,28 @@ df_2020.head()
 for each in data_key_list_2018[1:]:
     data_key = each
     #Read
-    df_cur = pd.read_parquet(read_sentinel5p('2018', data_key_list_2018[0]))
+    df_cur = pd.read_parquet(read_sentinel5p('2018', data_key))
     #Concat df to large df
     df_2018 = pd.concat([df_2018,df_cur], ignore_index=True)
     
 for each in data_key_list_2019[1:]:
     data_key = each
     #Read
-    df_cur = pd.read_parquet(read_sentinel5p('2019', data_key_list_2019[0]))
+    df_cur = pd.read_parquet(read_sentinel5p('2019', data_key))
     #Concat df to large df
     df_2019 = pd.concat([df_2019,df_cur], ignore_index=True)
 
 for each in data_key_list_2020[1:]:
     data_key = each
     #Read
-    df_cur = pd.read_parquet(read_sentinel5p('2020', data_key_list_2020[0]))
+    df_cur = pd.read_parquet(read_sentinel5p('2020', data_key))
     #Concat df to large df
     df_2020 = pd.concat([df_2020,df_cur], ignore_index=True)
 
 for each in data_key_list_2021[1:]:
     data_key = each
     #Read
-    df_cur = pd.read_parquet(read_sentinel5p('2021', data_key_list_2021[0]))
+    df_cur = pd.read_parquet(read_sentinel5p('2021', data_key))
     #Concat df to large df
     df_2021 = pd.concat([df_2021,df_cur], ignore_index=True)
     
@@ -146,6 +146,8 @@ print("2020 shape: ", df_2020.shape)
 print("2021 shape: ", df_2021.shape)
 # -
 
+len(df_2021.time_utc.unique())
+
 # CONCATENATING ALL DATA
 df_combined = df_2018
 df_combined = pd.concat([df_combined,df_2019], ignore_index=True)
@@ -153,17 +155,35 @@ df_combined = pd.concat([df_combined,df_2020], ignore_index=True)
 df_combined = pd.concat([df_combined,df_2021], ignore_index=True)
 print("Total shape: ", df_combined.shape)
 
-# +
-df_combined['date'] = pd.to_datetime(df_combined['time_utc']).dt.date
-groupby_date = df_combined.groupby(df_combined.date).count()
+df_combined.head()
 
-plt.figure(figsize=(40,20))
-plt.bar(df_combined.date.unique(), groupby_date.time_utc)
-# -
+df_combined
 
 groupby_date
 
+# +
+df_combined['date'] = pd.to_datetime(df_combined['time_utc']).dt.date
+groupby_date = df_combined.groupby(df_combined['date']).count()
 
+plt.figure(figsize=(40,20))
+plt.bar(groupby_date.index, groupby_date.time_utc)
+# -
+
+groupby_date.time_utc.describe()
+
+plt.boxplot(groupby_date.time_utc)
+
+# +
+#Write the dataframe to 1 parquet file
+file_name='combined-raw.parquet'
+
+bucket = 'methane-capstone'
+subfolder = 'combined-raw-data'
+s3_path_month = bucket+'/'+subfolder
+
+df_combined.to_parquet('s3://{}/{}'.format(s3_path_month,file_name), compression='gzip')
+
+# -
 
 # # Load Data In
 #
