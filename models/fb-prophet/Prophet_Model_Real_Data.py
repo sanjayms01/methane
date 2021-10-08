@@ -12,9 +12,8 @@
 #     name: python3__SAGEMAKER_INTERNAL__arn:aws:sagemaker:us-west-2:236514542706:image/datascience-1.0
 # ---
 
-# +
-# #!conda install -c plotly plotly==3.10.0 --yes
-# #!conda install -c conda-forge fbprophet --yes
+# !conda install -c plotly plotly==3.10.0 --yes
+# !conda install -c conda-forge fbprophet --yes
 
 # +
 from fbprophet import Prophet
@@ -25,7 +24,7 @@ import numpy as np
 import pandas as pd
 import os
 from datetime import datetime 
-import plotly.express as px
+# import plotly.express as px
 
 mpl.rcParams['figure.figsize'] = (10,8)
 mpl.rcParams['axes.grid'] = False
@@ -80,7 +79,7 @@ data_2021_9 = 's3://{}/{}'.format(file_path, '2021/2021-09-meth.parquet.gzip')
 
 
 
-# +
+# + jupyter={"outputs_hidden": true}
 #Combine all csv files into 1 dataframe
 df = pd.concat(map(pd.read_parquet, [data_2018_11, data_2018_12,
 data_2019_1,
@@ -290,4 +289,56 @@ fig1 = plt.axvline(datetime(2019, 1, 1))
 fig1 = plt.axvline(datetime(2020, 1, 1))
 fig1 = plt.axvline(datetime(2021, 1, 1))
 
+# # Calculate MSE
 
+from sklearn.metrics import mean_absolute_error
+
+results_nonan = results[results.y > 0]
+results_nonan.head()
+
+y_true = results_nonan['y'].values
+y_pred = results_nonan['yhat'].values
+print(len(y_true))
+print(len(y_pred))
+
+mae = mean_absolute_error(y_true, y_pred)
+print('MAE: %.3f' % mae)
+
+# # Additional Prophet Features
+
+#add changepoints 
+#https://facebook.github.io/prophet/docs/trend_changepoints.html#automatic-changepoint-detection-in-prophet
+from fbprophet.plot import add_changepoints_to_plot
+fig = model.plot(forecast)
+a=add_changepoints_to_plot(fig.gca(),model,forecast)
+
+# +
+# If Over or Underfitting, change "changepoint_prior_scale".  increasing makes trend more flexible
+
+#Create a prophet model
+model_overunderfit = Prophet(changepoint_prior_scale=500)
+model_overunderfit.fit(train)
+forecast = model_overunderfit.predict(future)
+fig = model_overunderfit.plot(forecast)
+a=add_changepoints_to_plot(fig.gca(),model_overunderfit,forecast)
+
+# +
+# If Over or Underfitting, change "changepoint_prior_scale".  increasing makes trend more flexible
+
+#Create a prophet model
+model_overunderfit = Prophet(changepoint_prior_scale=0.01)
+model_overunderfit.fit(train)
+forecast = model_overunderfit.predict(future)
+fig = model.plot(forecast)
+a=add_changepoints_to_plot(fig.gca(),model,forecast)
+# -
+
+# Specify Change Points
+#Create a prophet model
+model_cpoint = Prophet(changepoints=['2019-08-01'])
+model_cpoint.fit(train)
+forecast = model_cpoint.predict(future)
+fig = model_cpoint.plot(forecast)
+a=add_changepoints_to_plot(fig.gca(),model_cpoint,forecast)
+
+#SUPER EASY MARKDOWN EDIT VERSION 2 OF THIS FILE
