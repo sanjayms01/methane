@@ -32,113 +32,116 @@ mpl.rcParams['axes.grid'] = False
 
 # ## Combine Monthly Data Parquet Files into 1 Dataframe
 
-# +
-#Read in all files
-bucket = 'methane-capstone'
-subfolder = 'month-raw-data'
-file_path = bucket+'/'+subfolder
+# + jupyter={"source_hidden": true}
+# #Read in all files
+# bucket = 'methane-capstone'
+# subfolder = 'month-raw-data'
+# file_path = bucket+'/'+subfolder
 
-data_2018_11 = 's3://{}/{}'.format(file_path, '2018/2018-11-meth.parquet.gzip')
-data_2018_12 = 's3://{}/{}'.format(file_path, '2018/2018-12-meth.parquet.gzip/')
+# data_2018_11 = 's3://{}/{}'.format(file_path, '2018/2018-11-meth.parquet.gzip')
+# data_2018_12 = 's3://{}/{}'.format(file_path, '2018/2018-12-meth.parquet.gzip/')
 
-data_2019_1 = 's3://{}/{}'.format(file_path, '2019/2019-01-meth.parquet.gzip')
-data_2019_2 = 's3://{}/{}'.format(file_path, '2019/2019-02-meth.parquet.gzip')
-data_2019_3 = 's3://{}/{}'.format(file_path, '2019/2019-03-meth.parquet.gzip')
-data_2019_4 = 's3://{}/{}'.format(file_path, '2019/2019-04-meth.parquet.gzip')
-data_2019_5 = 's3://{}/{}'.format(file_path, '2019/2019-05-meth.parquet.gzip')
-data_2019_6 = 's3://{}/{}'.format(file_path, '2019/2019-06-meth.parquet.gzip')
-data_2019_7 = 's3://{}/{}'.format(file_path, '2019/2019-07-meth.parquet.gzip')
-data_2019_8 = 's3://{}/{}'.format(file_path, '2019/2019-08-meth.parquet.gzip')
-data_2019_9 = 's3://{}/{}'.format(file_path, '2019/2019-09-meth.parquet.gzip')
-data_2019_10 = 's3://{}/{}'.format(file_path, '2019/2019-10-meth.parquet.gzip')
-data_2019_11 = 's3://{}/{}'.format(file_path, '2019/2019-11-meth.parquet.gzip')
-data_2019_12 = 's3://{}/{}'.format(file_path, '2019/2019-12-meth.parquet.gzip')
+# data_2019_1 = 's3://{}/{}'.format(file_path, '2019/2019-01-meth.parquet.gzip')
+# data_2019_2 = 's3://{}/{}'.format(file_path, '2019/2019-02-meth.parquet.gzip')
+# data_2019_3 = 's3://{}/{}'.format(file_path, '2019/2019-03-meth.parquet.gzip')
+# data_2019_4 = 's3://{}/{}'.format(file_path, '2019/2019-04-meth.parquet.gzip')
+# data_2019_5 = 's3://{}/{}'.format(file_path, '2019/2019-05-meth.parquet.gzip')
+# data_2019_6 = 's3://{}/{}'.format(file_path, '2019/2019-06-meth.parquet.gzip')
+# data_2019_7 = 's3://{}/{}'.format(file_path, '2019/2019-07-meth.parquet.gzip')
+# data_2019_8 = 's3://{}/{}'.format(file_path, '2019/2019-08-meth.parquet.gzip')
+# data_2019_9 = 's3://{}/{}'.format(file_path, '2019/2019-09-meth.parquet.gzip')
+# data_2019_10 = 's3://{}/{}'.format(file_path, '2019/2019-10-meth.parquet.gzip')
+# data_2019_11 = 's3://{}/{}'.format(file_path, '2019/2019-11-meth.parquet.gzip')
+# data_2019_12 = 's3://{}/{}'.format(file_path, '2019/2019-12-meth.parquet.gzip')
 
-data_2020_1 = 's3://{}/{}'.format(file_path, '2020/2020-01-meth.parquet.gzip')
-data_2020_2 = 's3://{}/{}'.format(file_path, '2020/2020-02-meth.parquet.gzip')
-data_2020_3 = 's3://{}/{}'.format(file_path, '2020/2020-03-meth.parquet.gzip')
-data_2020_4 = 's3://{}/{}'.format(file_path, '2020/2020-04-meth.parquet.gzip')
-data_2020_5 = 's3://{}/{}'.format(file_path, '2020/2020-05-meth.parquet.gzip')
-data_2020_6 = 's3://{}/{}'.format(file_path, '2020/2020-06-meth.parquet.gzip')
-data_2020_7 = 's3://{}/{}'.format(file_path, '2020/2020-07-meth.parquet.gzip')
-data_2020_8 = 's3://{}/{}'.format(file_path, '2020/2020-08-meth.parquet.gzip')
-data_2020_9 = 's3://{}/{}'.format(file_path, '2020/2020-09-meth.parquet.gzip')
-data_2020_10 = 's3://{}/{}'.format(file_path, '2020/2020-10-meth.parquet.gzip')
-data_2020_11 = 's3://{}/{}'.format(file_path, '2020/2020-11-meth.parquet.gzip')
-data_2020_12 = 's3://{}/{}'.format(file_path, '2020/2020-12-meth.parquet.gzip')
+# data_2020_1 = 's3://{}/{}'.format(file_path, '2020/2020-01-meth.parquet.gzip')
+# data_2020_2 = 's3://{}/{}'.format(file_path, '2020/2020-02-meth.parquet.gzip')
+# data_2020_3 = 's3://{}/{}'.format(file_path, '2020/2020-03-meth.parquet.gzip')
+# data_2020_4 = 's3://{}/{}'.format(file_path, '2020/2020-04-meth.parquet.gzip')
+# data_2020_5 = 's3://{}/{}'.format(file_path, '2020/2020-05-meth.parquet.gzip')
+# data_2020_6 = 's3://{}/{}'.format(file_path, '2020/2020-06-meth.parquet.gzip')
+# data_2020_7 = 's3://{}/{}'.format(file_path, '2020/2020-07-meth.parquet.gzip')
+# data_2020_8 = 's3://{}/{}'.format(file_path, '2020/2020-08-meth.parquet.gzip')
+# data_2020_9 = 's3://{}/{}'.format(file_path, '2020/2020-09-meth.parquet.gzip')
+# data_2020_10 = 's3://{}/{}'.format(file_path, '2020/2020-10-meth.parquet.gzip')
+# data_2020_11 = 's3://{}/{}'.format(file_path, '2020/2020-11-meth.parquet.gzip')
+# data_2020_12 = 's3://{}/{}'.format(file_path, '2020/2020-12-meth.parquet.gzip')
 
-data_2021_1 = 's3://{}/{}'.format(file_path, '2021/2021-01-meth.parquet.gzip')
-data_2021_2 = 's3://{}/{}'.format(file_path, '2021/2021-02-meth.parquet.gzip')
-data_2021_3 = 's3://{}/{}'.format(file_path, '2021/2021-03-meth.parquet.gzip')
-data_2021_4 = 's3://{}/{}'.format(file_path, '2021/2021-04-meth.parquet.gzip')
-data_2021_5 = 's3://{}/{}'.format(file_path, '2021/2021-05-meth.parquet.gzip')
-data_2021_6 = 's3://{}/{}'.format(file_path, '2021/2021-06-meth.parquet.gzip')
-data_2021_7 = 's3://{}/{}'.format(file_path, '2021/2021-07-meth.parquet.gzip')
-data_2021_8 = 's3://{}/{}'.format(file_path, '2021/2021-08-meth.parquet.gzip')
-data_2021_9 = 's3://{}/{}'.format(file_path, '2021/2021-09-meth.parquet.gzip')
+# data_2021_1 = 's3://{}/{}'.format(file_path, '2021/2021-01-meth.parquet.gzip')
+# data_2021_2 = 's3://{}/{}'.format(file_path, '2021/2021-02-meth.parquet.gzip')
+# data_2021_3 = 's3://{}/{}'.format(file_path, '2021/2021-03-meth.parquet.gzip')
+# data_2021_4 = 's3://{}/{}'.format(file_path, '2021/2021-04-meth.parquet.gzip')
+# data_2021_5 = 's3://{}/{}'.format(file_path, '2021/2021-05-meth.parquet.gzip')
+# data_2021_6 = 's3://{}/{}'.format(file_path, '2021/2021-06-meth.parquet.gzip')
+# data_2021_7 = 's3://{}/{}'.format(file_path, '2021/2021-07-meth.parquet.gzip')
+# data_2021_8 = 's3://{}/{}'.format(file_path, '2021/2021-08-meth.parquet.gzip')
+# data_2021_9 = 's3://{}/{}'.format(file_path, '2021/2021-09-meth.parquet.gzip')
 
 
 
-# + jupyter={"outputs_hidden": true}
-#Combine all csv files into 1 dataframe
-df = pd.concat(map(pd.read_parquet, [data_2018_11, data_2018_12,
-data_2019_1,
-data_2019_2 ,
-data_2019_3 ,
-data_2019_4 ,
-data_2019_5 ,
-data_2019_6 ,
-data_2019_7 ,
-data_2019_8 ,
-data_2019_9 ,
-data_2019_10,
-data_2019_11,
-data_2019_12,
+# + jupyter={"source_hidden": true}
+# #Combine all csv files into 1 dataframe
+# df = pd.concat(map(pd.read_parquet, [data_2018_11, data_2018_12,
+# data_2019_1,
+# data_2019_2 ,
+# data_2019_3 ,
+# data_2019_4 ,
+# data_2019_5 ,
+# data_2019_6 ,
+# data_2019_7 ,
+# data_2019_8 ,
+# data_2019_9 ,
+# data_2019_10,
+# data_2019_11,
+# data_2019_12,
 
-data_2020_1,
-data_2020_2 ,
-data_2020_3,
-data_2020_4 ,
-data_2020_5 ,
-data_2020_6 ,
-data_2020_7 ,
-data_2020_8 ,
-data_2020_9 ,
-data_2020_10 ,
-data_2020_11 ,
-data_2020_12 ,
+# data_2020_1,
+# data_2020_2 ,
+# data_2020_3,
+# data_2020_4 ,
+# data_2020_5 ,
+# data_2020_6 ,
+# data_2020_7 ,
+# data_2020_8 ,
+# data_2020_9 ,
+# data_2020_10 ,
+# data_2020_11 ,
+# data_2020_12 ,
 
-data_2021_1 ,
-data_2021_2 ,
-data_2021_3 ,
-data_2021_4 ,
-data_2021_5 ,
-data_2021_6 ,
-data_2021_7,
-data_2021_8,
-data_2021_9 ]), ignore_index=True)
-df
+# data_2021_1 ,
+# data_2021_2 ,
+# data_2021_3 ,
+# data_2021_4 ,
+# data_2021_5 ,
+# data_2021_6 ,
+# data_2021_7,
+# data_2021_8,
+# data_2021_9 ]), ignore_index=True)
+# df
 
 # +
 # #Write the dataframe to 1 parquet file
 # file_name='methane_fake_data_all.parquet'
 # df.to_parquet('s3://{}/{}'.format(file_path,file_name))
-# -
-
-# ## Facebook Prophet Work
 
 # +
-# bucket = 'methane-capstone'
-# subfolder = 'eda-data'
-# file_path = bucket+'/'+subfolder
+# Read in Total Dataframe
+bucket = 'methane-capstone'
+subfolder = 'combined-raw-data'
+s3_path_month = bucket+'/'+subfolder
 
-# #Read in parquet file
-# data_key = 'methane_fake_data_all.parquet'
-# data_location = 's3://{}/{}'.format(file_path, data_key)
+#Read in parquet file
+file_name='combined-raw.parquet'
+data_location = 's3://{}/{}'.format(s3_path_month, file_name)
 
-# #Read
-# methane_fake_data_all_df = pd.read_parquet(data_location)
+#Read
+df = pd.read_parquet(data_location)
 # -
+
+print(df.shape)
+df.head()
+
+# ## Facebook Prophet Work
 
 #Convert date into yyyy-mm-dd format
 df['date_formatted'] = pd.to_datetime(df['time_utc'], format='%y-%m-%d h%:m%:s%').dt.strftime('%Y-%m-%d')
@@ -146,6 +149,7 @@ df['date_formatted'] = pd.to_datetime(df['time_utc'], format='%y-%m-%d h%:m%:s%'
 df
 
 df = df[df['qa_val']>.4]
+
 df
 
 #Average all methane readings for one day
@@ -304,13 +308,13 @@ print(len(y_pred))
 mae = mean_absolute_error(y_true, y_pred)
 print('MAE: %.3f' % mae)
 
-# # Additional Prophet Features
+# # Change Points
 
 #add changepoints 
 #https://facebook.github.io/prophet/docs/trend_changepoints.html#automatic-changepoint-detection-in-prophet
 from fbprophet.plot import add_changepoints_to_plot
 fig = model.plot(forecast)
-a=add_changepoints_to_plot(fig.gca(),model,forecast)
+a=add_changepoints_to_plot(fig.gca(),model,forecast)  #just shows the change point lines
 
 # +
 # If Over or Underfitting, change "changepoint_prior_scale".  increasing makes trend more flexible
@@ -341,4 +345,31 @@ forecast = model_cpoint.predict(future)
 fig = model_cpoint.plot(forecast)
 a=add_changepoints_to_plot(fig.gca(),model_cpoint,forecast)
 
-#SUPER EASY MARKDOWN EDIT VERSION 2 OF THIS FILE
+# # Holidays
+
+#  Create holiday dataframe
+# https://facebook.github.io/prophet/docs/seasonality,_holiday_effects,_and_regressors.html#modeling-holidays-and-special-events
+holidays = pd.DataFrame({
+  'holiday': 'random_holiday',
+  'ds': pd.to_datetime(['2019-08-13', '2019-08-03', '2019-08-16',
+                        '2020-08-24', '2020-08-07', '2020-08-08',
+                        '2021-08-12', '2021-08-19']),
+  'lower_window': 0,
+  'upper_window': 1,
+})
+holidays
+
+m = Prophet(holidays=holidays)
+m.add_country_holidays(country_name='US')  #ADD Library of Holidays
+forecast_holiday = m.fit(train).predict(future)
+
+m.train_holiday_names
+
+forecast_holiday.random_holiday
+
+forecast_holiday[(forecast_holiday['random_holiday']).abs() > 0][
+        ['ds', 'random_holiday']][-10:]
+
+fig = m.plot_components(forecast_holiday)
+
+
