@@ -119,7 +119,7 @@ mpl.rcParams['axes.grid'] = False
 # data_2021_9 ]), ignore_index=True)
 # df
 
-# +
+# + jupyter={"source_hidden": true}
 # #Write the dataframe to 1 parquet file
 # file_name='methane_fake_data_all.parquet'
 # df.to_parquet('s3://{}/{}'.format(file_path,file_name))
@@ -293,6 +293,18 @@ fig1 = plt.axvline(datetime(2019, 1, 1))
 fig1 = plt.axvline(datetime(2020, 1, 1))
 fig1 = plt.axvline(datetime(2021, 1, 1))
 
+model.params
+
+methane_df
+
+# +
+from fbprophet.diagnostics import cross_validation, performance_metrics
+
+cv_results = cross_validation(model =model, initial = '370 days', horizon = '6 days')
+df_p = performance_metrics(cv_results)
+df_p
+# -
+
 # # Calculate MSE
 
 from sklearn.metrics import mean_absolute_error
@@ -371,5 +383,46 @@ forecast_holiday[(forecast_holiday['random_holiday']).abs() > 0][
         ['ds', 'random_holiday']][-10:]
 
 fig = m.plot_components(forecast_holiday)
+
+# # Hyperparameter Tuning
+
+# +
+#https://facebook.github.io/prophet/docs/diagnostics.html
+
+# *WARNING* This code takes forever.
+
+import itertools
+import numpy as np
+import pandas as pd
+
+param_grid = {  
+    'changepoint_prior_scale': [0.001, 0.01, 0.1, 0.5],
+    'seasonality_prior_scale': [0.01, 0.1, 1.0, 10.0],
+}
+
+
+cutoffs = pd.to_datetime(['2013-02-15', '2013-08-15', '2014-02-15'])
+
+
+# Generate all combinations of parameters
+all_params = [dict(zip(param_grid.keys(), v)) for v in itertools.product(*param_grid.values())]
+rmses = []  # Store the RMSEs for each params here
+
+# Use cross validation to evaluate all parameters
+for params in all_params:
+    m = Prophet(**params).fit(train)  # Fit model with given params
+    df_cv = cross_validation(m, horizon='30 days')
+    df_p = performance_metrics(df_cv, rolling_window=1)
+    rmses.append(df_p['rmse'].values[0])
+
+# Find the best parameters
+tuning_results = pd.DataFrame(all_params)
+tuning_results['rmse'] = rmses
+print(tuning_results)
+# -
+
+
+
+
 
 
