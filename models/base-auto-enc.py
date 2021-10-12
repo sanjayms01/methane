@@ -80,7 +80,7 @@ end = time.time()
 print(end-start)
 # -
 
-#Dates we don't have data for
+#Dates we don't have ANY data for
 missing_dates = sorted(list(all_dates - dates_with_data))
 print("Missing days: ", len(missing_dates))
 missing_dates
@@ -242,7 +242,7 @@ df_trim_day = df_trim.groupby(df_trim.time_utc.dt.date).agg({'methane_mixing_rat
                                                              'methane_mixing_ratio_precision': 'mean',
                                                             }).reset_index()
 
-#To also get the number of readings we have each day (consider as a weight feature...)
+#To also get the number of readings we have each day
 df_trim_reading_count = df_trim.groupby(df_trim.time_utc.dt.date).agg({
                                                              'methane_mixing_ratio': 'count',
                                                             }).reset_index().rename(columns={"methane_mixing_ratio": "reading_count"})
@@ -250,7 +250,7 @@ df_trim_reading_count = df_trim.groupby(df_trim.time_utc.dt.date).agg({
 #Join this onto our data set
 df_trim_day = df_trim_day.merge(df_trim_reading_count, 'inner')
 
-#Add in missing dates
+#Add in missing date rows
 df_trim_day = df_trim_day.set_index('time_utc').asfreq('D')
 
 
@@ -259,17 +259,16 @@ miss_list = df_trim_day.isnull().sum(axis=0).tolist()
 missing_dates = df_trim_day[df_trim_day['methane_mixing_ratio'].isnull()].index
 print(f"Missing #: {miss_list[0]}")
 print(f"Missing {100*miss_list[0]/df_trim_day.shape[0]}% of data")
-print(f"Missing {100*miss_list[0]/len(all_dates)}% of data - to all dates")
 print()
 
 #Interpolate Data
-method = 'spline' #linear, spline, time
+method = 'time' #linear, spline, time
 order = 3
 
 df_interpol = df_trim_day.resample('D').mean()
-df_trim_day['mmrbc_i'] = df_interpol['methane_mixing_ratio_bias_corrected'].interpolate(method=method, order=order)
-df_trim_day['mmr_i'] = df_interpol['methane_mixing_ratio'].interpolate(method=method, order=order)
-df_trim_day['mmrp_i'] = df_interpol['methane_mixing_ratio_precision'].interpolate(method=method, order=order)
+df_trim_day['mmrbc_i'] = df_interpol['methane_mixing_ratio_bias_corrected'].interpolate(method=method) #, order=order)
+df_trim_day['mmr_i'] = df_interpol['methane_mixing_ratio'].interpolate(method=method) #, order=order)
+df_trim_day['mmrp_i'] = df_interpol['methane_mixing_ratio_precision'].interpolate(method=method) #, order=order)
 
 #Set any interpolated date to `0`
 df_trim_day['reading_count'] = df_trim_day['reading_count'].fillna(value=0)
@@ -279,10 +278,12 @@ print(df_trim_day.shape)
 df_trim_day.head(4)
 # -
 
+
+
 # ### Understand Missing Data
 # * Do this via the reading count
 
-df_trim_day.groupby(df_trim_day.time_utc.dt.month)['reading_count'].sum()
+df_trim_day.groupby(df_trim_day.time_utc.dt.year)['reading_count'].sum()
 
 # +
 # Graph # of readings we have over time
@@ -377,13 +378,6 @@ rcParams['figure.figsize'] = 22, 18
 
 from sklearn.preprocessing import MinMaxScaler, StandardScaler
 
-# from keras.models import Model
-# from keras.models import Sequential
-# from keras.layers import LSTM, Input, Dropout
-# from keras.layers import Dense
-# from keras.layers import RepeatVector
-# from keras.layers import TimeDistributed
-
 
 # +
 print(df_trim_day.shape)
@@ -403,11 +397,11 @@ plt.plot(df_trim_day['mmrbc_i'], label='mmrbc_i')
 
 # +
 by_dt = True
-threshold = '2021-01-01'
+date_threshold = '2021-01-01'
 train_percent = 0.95
 
 if by_dt:
-    train, test = df_trim_day.loc[df_trim_day.index < threshold], df_trim_day.loc[df_trim_day.index >= threshold]
+    train, test = df_trim_day.loc[df_trim_day.index < date_threshold], df_trim_day.loc[df_trim_day.index >= date_threshold]
         
 else:
     
@@ -463,8 +457,6 @@ testX, testY = create_sequenes(test[['mmrbc_i']], test['mmrbc_i'], seq_size)
 print("trainX.shape: ", trainX.shape, "trainY.shape: ", trainY.shape)
 print("testX.shape: ", testX.shape, "testY.shape: ", testY.shape)
 # -
-
-
 
 # ### Baseline Model
 #
@@ -524,7 +516,7 @@ test_mae_loss = np.mean(np.abs(testX_pred, testX), axis=1)
 # * lower the value, more anomalies we will detect.
 # * We can reason about this with the descriptive statistics we have learned from the data
 
-anom_thresh = 1.0
+anom_thresh = 1.5
 
 # +
 
