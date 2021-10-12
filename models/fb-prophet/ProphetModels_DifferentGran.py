@@ -174,8 +174,12 @@ methane_df = averaged_df.reset_index()[['date_formatted', 'methane_mixing_ratio_
 model, forecast, results, anomaly_df, train, test = FBpropet(methane_df, changepoint_range=0.95, future_periods=273, anomaly_factor=1)
 # -
 
+averaged_df
+
 plot_title = 'Model_1: California Average Methane Concentration'
 FBpropet_plot(model, forecast, results, anomaly_df, test, plot_title)
+
+results.error.describe()
 
 # # Model_2: Partitioned by Latitudes
 
@@ -292,22 +296,19 @@ for key in list(random_latlon_models.keys()):
 #Create FB Prophet Models With Self-Selected Lat/Lon 
 
 #User Inputs
-lat= 32.842548          #SPECIFY LAT
-lon= -114.828880        #SPECIFY LON
-decimals = 1            #SPECIFY DECIMALS/GRANULARITY
+precision=0.5   #Any data between lat/lon +/- precision/2 would be kept in dataframe
+lat = 35.0
+lat_range = [lat+precision/2, lat-precision/2]
+lon = -119.0
+lon_range = [lon+precision/2, lon-precision/2]
+df[(df.lat < lat_range[0]) & (df.lat > lat_range[1]) & (df.lon < lon_range[0]) & (df.lon > lon_range[1])]
 
 #Create a new dataframe for rounded decimals
 df_qual = df[df['qa_val']>.4]
 df_qual_rounded = df_qual[['date_formatted','lat','lon','methane_mixing_ratio_bias_corrected']]
 
-#Rounding the values
-lat = round(lat,decimals)
-lon = round(lon,decimals)
-df_qual_rounded['lat']=df_qual_rounded['lat'].round(decimals)
-df_qual_rounded['lon']=df_qual_rounded['lon'].round(decimals)
-
 #New dataframe for User Inputs
-lat_lon_df = df_qual_rounded[ (df_qual_rounded.lat == truncate(lat,decimals)) & (df_qual_rounded.lon == truncate(lon,decimals)) ]
+lat_lon_df = df[(df.lat < lat_range[0]) & (df.lat > lat_range[1]) & (df.lon < lon_range[0]) & (df.lon > lon_range[1])]
 print("Shape: ", lat_lon_df.shape)
 lat_lon_df.head()
 
