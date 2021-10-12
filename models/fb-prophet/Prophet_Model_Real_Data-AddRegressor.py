@@ -38,6 +38,7 @@ mpl.rcParams['axes.grid'] = False
 # -
 
 # ## Combine Monthly Data Parquet Files into 1 Dataframe
+##################
 
 # + jupyter={"source_hidden": true}
 # #Read in all files
