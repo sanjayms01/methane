@@ -21,7 +21,8 @@
 #
 # Model 1 = Entire California  
 # Model 2 = Grouped by Latitudes   
-# Model 3 = Random Latitude and Longitude Locations, rounded to whole numbers (e.g. Lat = 33 / Long = -131)
+# Model 3 = Random Latitude and Longitude Locations, rounded to whole numbers (e.g. Lat = 33 / Long = -131)  
+# Model 4 = Self Selected Latitude and Longitude
 
 # # Import Packages and Data
 
@@ -285,4 +286,42 @@ for key in list(random_latlon_models.keys()):
     FBpropet_plot(model, forecast, results, anomaly_df, test, plot_title)
 # -
 
+# # Model_4: Self-Selected Lat and Lon
 
+# +
+#Create FB Prophet Models With Self-Selected Lat/Lon 
+
+#User Inputs
+lat= 32.842548          #SPECIFY LAT
+lon= -114.828880        #SPECIFY LON
+decimals = 1            #SPECIFY DECIMALS/GRANULARITY
+
+#Create a new dataframe for rounded decimals
+df_qual = df[df['qa_val']>.4]
+df_qual_rounded = df_qual[['date_formatted','lat','lon','methane_mixing_ratio_bias_corrected']]
+
+#Rounding the values
+lat = round(lat,decimals)
+lon = round(lon,decimals)
+df_qual_rounded['lat']=df_qual_rounded['lat'].round(decimals)
+df_qual_rounded['lon']=df_qual_rounded['lon'].round(decimals)
+
+#New dataframe for User Inputs
+lat_lon_df = df_qual_rounded[ (df_qual_rounded.lat == truncate(lat,decimals)) & (df_qual_rounded.lon == truncate(lon,decimals)) ]
+print("Shape: ", lat_lon_df.shape)
+lat_lon_df.head()
+
+# +
+#Average all methane readings for specific lat/lon
+lat_lon_averaged_series = lat_lon_df.groupby(['date_formatted'])['methane_mixing_ratio_bias_corrected'].mean()
+lat_lon_df = lat_lon_averaged_series.to_frame().reset_index()
+methane_df = lat_lon_df.reset_index()[['date_formatted', 'methane_mixing_ratio_bias_corrected']].rename({'date_formatted':'ds', 
+                                                               'methane_mixing_ratio_bias_corrected':'y'}, 
+                                                              axis='columns')
+
+#Create Model and Forecast
+model, forecast, results, anomaly_df, train, test = FBpropet(methane_df, changepoint_range=0.95, future_periods=273, anomaly_factor=1)
+
+#Plotting
+plot_title = 'Model_4: CA Lat/Lon ({},{}) Average Methane Concentration'.format(lat,lon)
+FBpropet_plot(model, forecast, results, anomaly_df, test, plot_title)
