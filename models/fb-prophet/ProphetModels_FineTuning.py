@@ -13,11 +13,6 @@
 #     name: python3__SAGEMAKER_INTERNAL__arn:aws:sagemaker:us-west-2:236514542706:image/datascience-1.0
 # ---
 
-# +
-# # !conda install -c plotly plotly==3.10.0 --yes
-# # !conda install -c conda-forge fbprophet --yes
-# -
-
 # # This notebook fine-tunes a single model.
 #
 # Model 1 = Entire California  
@@ -80,6 +75,8 @@ import numpy as np
 import pandas as pd
 import os
 from datetime import datetime 
+import itertools
+
 # import plotly.express as px
 
 mpl.rcParams['figure.figsize'] = (10,8)
@@ -88,7 +85,7 @@ mpl.rcParams['axes.grid'] = False
 # +
 # Read in Data
 bucket = 'methane-capstone'
-subfolder = 'combined-raw-data'
+subfolder = 'data/combined-raw-data'
 s3_path_month = bucket+'/'+subfolder
 file_name='combined-raw.parquet'
 data_location = 's3://{}/{}'.format(s3_path_month, file_name)
@@ -109,7 +106,62 @@ df.head()
 
 # -
 
-# # Create FB Prophet Modeling and Graph Functions
+# # Create FB Prophet Graph Function
+
+def FBpropet_plot(model, forecast, results, anomaly_df, test, plot_title, save=False):
+    
+    """
+    Inputs:
+        model = the model that was trained with the input dataset
+        forecast = default forecasting dataframe from fb-prophet package, lots of helpful information
+        results = simplied version of the forecast dataframe but includes column for anomaly or not
+        anomaly_df = results dataframe but only rows that are anomalies
+        test = test data already formatted to two columns of "ds" and "y"
+        plot_title = string to appear on top of plot
+    
+    Output:
+        One plot
+    """
+
+    #Plotting
+    fig1 = model.plot(forecast)
+    fig1 = plt.scatter(x=test.ds, y=test.y, c='b', marker = ".")
+    fig1 = plt.legend(['Train Actuals', 'Forecast', '95% CI', 'Test Actuals'], fontsize=12, loc='upper left')
+    fig1 = plt.xlabel("Date", size=18)
+    fig1 = plt.ylabel("Methane Concentration (ppb)", size=18)
+    fig1 = plt.xticks(fontsize=12)
+    fig1 = plt.yticks(fontsize=12)
+    fig1 = plt.title(plot_title, size=25)
+    fig1 = plt.scatter(x=anomaly_df.ds, y=anomaly_df.y, c='r', s=50)
+    fig1 = plt.axvline(datetime(2019, 1, 1))
+    fig1 = plt.axvline(datetime(2020, 1, 1))
+    fig1 = plt.axvline(datetime(2021, 1, 1))
+    
+    
+    if save:
+        #Write the dataframe to 1 parquet file
+        cp= model.changepoint_prior_scale
+        sp= model.seasonality_prior_scale
+        smode= model.seasonality_mode
+        file_name='figure_cp_sp_smode-{}_{}_{}.jpg'.format(cp,sp,smode)
+     
+        plt.savefig('images/{}'.format(file_name), bbox_inches = "tight")   #use bbox_inches b/c saving by default cuts off some text
+
+        
+        
+    #Dark blue are yhat
+    #Light blue is yhat confidence interval
+
+    #plot the components
+    #Top is the trend
+    #Middle is weekly trend
+    #Bottom is trend throughout the year
+#     fig2 = model.plot_components(forecast)
+
+# # WITHOUT TUNING: Model_1: Averaged Entire California
+
+# +
+# THIS FUNCTION IS NOT FOR HYPERPARAMETER TUNING
 
 def FBpropet(full_df, changepoint_range=0.95, changepoint_prior_scale=0.05, 
              seasonality_mode='additive', seasonality_prior_scale=10, future_periods=273, 
@@ -174,46 +226,6 @@ def FBpropet(full_df, changepoint_range=0.95, changepoint_prior_scale=0.05,
 
 
 
-def FBpropet_plot(model, forecast, results, anomaly_df, test, plot_title):
-    
-    """
-    Inputs:
-        model = the model that was trained with the input dataset
-        forecast = default forecasting dataframe from fb-prophet package, lots of helpful information
-        results = simplied version of the forecast dataframe but includes column for anomaly or not
-        anomaly_df = results dataframe but only rows that are anomalies
-        test = test data already formatted to two columns of "ds" and "y"
-        plot_title = string to appear on top of plot
-    
-    Output:
-        One plot
-    """
-
-    #Plotting
-    fig1 = model.plot(forecast)
-    fig1 = plt.scatter(x=test.ds, y=test.y, c='b', marker = ".")
-    fig1 = plt.legend(['Train Actuals', 'Forecast', '95% CI', 'Test Actuals'], fontsize=12, loc='upper left')
-    fig1 = plt.xlabel("Date", size=18)
-    fig1 = plt.ylabel("Methane Concentration (ppb)", size=18)
-    fig1 = plt.xticks(fontsize=12)
-    fig1 = plt.yticks(fontsize=12)
-    fig1 = plt.title(plot_title, size=25)
-    fig1 = plt.scatter(x=anomaly_df.ds, y=anomaly_df.y, c='r', s=50)
-    fig1 = plt.axvline(datetime(2019, 1, 1))
-    fig1 = plt.axvline(datetime(2020, 1, 1))
-    fig1 = plt.axvline(datetime(2021, 1, 1))
-    #Dark blue are yhat
-    #Light blue is yhat confidence interval
-
-    #plot the components
-    #Top is the trend
-    #Middle is weekly trend
-    #Bottom is trend throughout the year
-#     fig2 = model.plot_components(forecast)
-
-
-# # Model_1: Averaged Entire California
-
 # +
 # WITHOUT TUNING
 
@@ -236,10 +248,30 @@ model, forecast, results, anomaly_df, train, test = FBpropet(methane_df, changep
                                                              anomaly_factor=1)
 #Plotting
 plot_title = 'Model_1: California Average Methane Concentration'
-FBpropet_plot(model, forecast, results, anomaly_df, test, plot_title)
+FBpropet_plot(model, forecast, results, anomaly_df, test, plot_title, True)
 # -
 
-# # Hyper-Parameter Tuning
+# # WITH TUNING: Model_1: Averaged Entire California
+
+# +
+# Process Data
+
+#Only quality >0.4
+df_qual = df[df['qa_val']>.4]
+
+#Average all methane readings for one day
+averaged_series = df_qual.groupby('date_formatted')['methane_mixing_ratio_bias_corrected'].mean()
+averaged_df = averaged_series.to_frame().reset_index()
+
+#Create new dataframe with the columns named as ds and y, as that is what Prophet requires
+methane_df = averaged_df.reset_index()[['date_formatted', 'methane_mixing_ratio_bias_corrected']].rename({'date_formatted':'ds', 
+                                                           'methane_mixing_ratio_bias_corrected':'y'}, 
+                                                          axis='columns')
+
+#Split dataframe into train and test
+train = methane_df[(methane_df['ds']<'2021-01-01')]
+test = methane_df[(methane_df['ds']>'2020-12-31')]
+    
 
 # +
 #TUNING 
@@ -253,10 +285,11 @@ param_grid = {
 }
 
 
+# #Test with less parameters
 # param_grid = {  
-#     'changepoint_prior_scale': [0.001],
-#     'seasonality_prior_scale': [0.01],
-#     'seasonality_mode': ['additive', 'multiplicative']
+#     'changepoint_prior_scale': [0.001, 0.01, 0.1, 0.5],
+#     'seasonality_prior_scale': [10.0],
+#     'seasonality_mode': ['multiplicative']#'additive']#, 'multiplicative']
 # }
 
 # Generate all combinations of parameters
@@ -278,8 +311,8 @@ for params in all_params:
     anomaly_factor=1
     full_df = train
     
-    future = model.make_future_dataframe(periods=future_periods)  #Create Future dataframe for predicting historical and future dates
-    forecast = model.predict(future)          #Forecast dataset
+    future = m.make_future_dataframe(periods=future_periods)  #Create Future dataframe for predicting historical and future dates
+    forecast = m.predict(future)          #Forecast dataset
 
     #Create a new dataframe that has the forecasts plus the actual true value for that day
     results = pd.concat([full_df.set_index('ds')['y'], forecast.set_index('ds')[['yhat','yhat_lower', 'yhat_upper']]],axis=1) 
@@ -297,7 +330,7 @@ for params in all_params:
 
     plot_title = 'CA Avg Methane, CP/S/S-mode={}/{}/{}'.format(params['changepoint_prior_scale'], params['seasonality_prior_scale'], params['seasonality_mode'])
 
-    FBpropet_plot(m, forecast, results, anomaly_df, test, plot_title)
+    FBpropet_plot(m, forecast, results, anomaly_df, test, plot_title, save=True )
     
     print("time in sec: ",time.time()-start1)
     start1=time.time()
@@ -309,16 +342,79 @@ tuning_results['rmse'] = rmses
 print(tuning_results)
 
 best_params = all_params[np.argmin(rmses)]
+
 print('best param: ', best_params)
 print("time to complete: ", time.time()-start2, "seconds")
-# -
+
+# +
+#TUNING 
+from fbprophet.diagnostics import cross_validation, performance_metrics
+import time
+
+param_grid = {  
+    'changepoint_prior_scale': [0.001, 0.01, 0.1, 0.5],
+    'seasonality_prior_scale': [0.01, 0.1, 1.0, 10.0],
+    'seasonality_mode': ['additive', 'multiplicative']
+}
 
 
+#Test with less parameters
+param_grid = {  
+    'changepoint_prior_scale': [0.001, 0.01, 0.1, 0.5],
+    'seasonality_prior_scale': [10.0],
+    'seasonality_mode': ['multiplicative']#'additive']#, 'multiplicative']
+}
 
+# Generate all combinations of parameters
+all_params = [dict(zip(param_grid.keys(), v)) for v in itertools.product(*param_grid.values())]
+rmses = []  # Store the RMSEs for each params here
 
+start1=time.time()
+start2=time.time()
 
+# Use cross validation to evaluate all parameters
+for params in all_params:
+    m = Prophet(**params).fit(train)  # Fit model with given params
+    df_cv = cross_validation(m, horizon='30 days')
+    df_p = performance_metrics(df_cv, rolling_window=1)
+    rmses.append(df_p['rmse'].values[0])
+    
+    
+    future_periods=273
+    anomaly_factor=1
+    full_df = train
+    
+    future = m.make_future_dataframe(periods=future_periods)  #Create Future dataframe for predicting historical and future dates
+    forecast = m.predict(future)          #Forecast dataset
 
+    #Create a new dataframe that has the forecasts plus the actual true value for that day
+    results = pd.concat([full_df.set_index('ds')['y'], forecast.set_index('ds')[['yhat','yhat_lower', 'yhat_upper']]],axis=1) 
 
+    #OUTLIER DETECTION
+    results['error'] = results['y'] - results['yhat']                      #error = true minus predict
+    results['uncertainty'] = results['yhat_upper'] - results['yhat_lower'] #unvertainty = range of prediction interval
 
+    #Look for outliers
+    #Create anomaly column that will flag the row as an anomaly
+    #If greater than ANOMALY_FACTOR times uncertainty value then it's an outlier
+    results['anomaly'] = results.apply(lambda x: 'Yes' if(np.abs(x['error'])>anomaly_factor*x['uncertainty']) else 'No',axis=1)
+    results = results.reset_index()
+    anomaly_df = results[results.anomaly == 'Yes']
+    print(anomaly_df)
+    plot_title = 'CA Avg Methane, CP/S/S-mode={}/{}/{}'.format(params['changepoint_prior_scale'], params['seasonality_prior_scale'], params['seasonality_mode'])
 
+    FBpropet_plot(m, forecast, results, anomaly_df, test, plot_title, save=True )
+    
+    print("time in sec: ",time.time()-start1)
+    start1=time.time()
+    
+    
+# Find the best parameters
+tuning_results = pd.DataFrame(all_params)
+tuning_results['rmse'] = rmses
+print(tuning_results)
 
+best_params = all_params[np.argmin(rmses)]
+
+print('best param: ', best_params)
+print("time to complete: ", time.time()-start2, "seconds")
