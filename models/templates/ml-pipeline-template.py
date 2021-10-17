@@ -7,9 +7,9 @@
 #       format_version: '1.5'
 #       jupytext_version: 1.13.0
 #   kernelspec:
-#     display_name: Python 3 (Data Science)
+#     display_name: Python 3 (TensorFlow 2.3 Python 3.7 CPU Optimized)
 #     language: python
-#     name: python3__SAGEMAKER_INTERNAL__arn:aws:sagemaker:us-west-2:236514542706:image/datascience-1.0
+#     name: python3__SAGEMAKER_INTERNAL__arn:aws:sagemaker:us-west-2:236514542706:image/tensorflow-2.3-cpu-py37-ubuntu18.04-v1
 # ---
 
 # # ML Pipeline Template
@@ -39,21 +39,30 @@
 #
 # Add all necessary imports here.
 
+# Downgrade Tensorflow to version 2.3
+# !pip install tensorflow==2.3
+
 # +
 import os
+import boto3
 import datetime
 from itertools import product
 
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+from pandas.plotting import register_matplotlib_converters
+from pylab import rcParams
 import seaborn as sns
 
 import tensorflow as tf
 from tensorflow import keras
-from keras.utils.vis_utils import plot_model
+# from keras.utils.vis_utils import plot_model
 from sklearn.preprocessing import MinMaxScaler, StandardScaler
 # -
+
+# Important to ensure we are using Tensorflow version 2.3
+print(tf.__version__)
 
 # %matplotlib inline
 # %config InlineBackend.figure_format='retina'
@@ -62,12 +71,17 @@ register_matplotlib_converters()
 sns.set(style='whitegrid', palette='muted', font_scale=1.5)
 rcParams['figure.figsize'] = 22, 18
 
-# ## Load Data
+# ## Paths
 
+ROOT_DIR = '/root/methane/models'
 bucket = 'methane-capstone'
 subfolder = 'data/data-variants'
 s3_path = bucket+'/'+subfolder
-file_name='data_10D_rn_1.parquet.gzip' # Insert specific data variant file name here
+print('s3_path: ', s3_path)
+
+# ## Load Data
+
+file_name='data_10D_rn.parquet.gzip' # Insert specific data variant file name here
 data_location = 's3://{}/{}'.format(s3_path, file_name)
 df = pd.read_parquet(data_location)
 print(df.shape)
@@ -139,21 +153,39 @@ config = {
     'd_rate': 0.2,
     'loss': 'mae',
     'optimizer': 'adam',
-    'epochs': 10,
+    'epochs': 2,
     'batch_size': 32,
     'val_split': 0.1
 }
 
+# ## Define Model Name
+
+# +
+dev_name = '' # Put your name here
+name_list = file_name.split('.')
+freq_res = name_list[0].split('_')
+freq = freq_res[1]
+
+if (len(freq_res) == 4):
+    resolution = freq_res[2] + freq_res[3]
+else:
+    resolution = freq_res[2]
+    
+model_name = f'autoencoder_{dev_name}_{freq}_{resolution}'
+print("Model Name: ", model_name)
+
+
+# -
 
 # ## Create Model
 
-def create_model(config): # pass in any args as necessary
+def create_model(config):
     # Initialize the model
     model = keras.Sequential()
     
     # Get model config params
     units = config['units']
-    rate = config['rate']
+    rate = config['d_rate']
 
     # Create the layers of the model
     model.add(keras.layers.LSTM(units=units, input_shape = (trainX.shape[1], trainX.shape[2])))
@@ -185,19 +217,19 @@ def train_model(config):
     val_split = config['val_split']
     
     # Compile the model
-    model.compile(loss=loss, optimizer=optimizer)
+    model.compile(loss=loss, optimizer=optimizer, metrics=['mae'])
     
-    # Set up Tensorboard
-    logdir = os.path.join(f'methane/models/logs/{model_name}_', datetime.datetime.now().strftime("%Y%m%d-%H%M%S"))
-    tensorboard_callback = tf.keras.callbacks.TensorBoard(logdir, historgram_freq=1)
+    # Set up Tensorboard callback
+    log_dir = os.path.join(f"{ROOT_DIR}/logs/{dev_name}", model_name + '_' + datetime.datetime.now().strftime("%Y%m%d-%H%M%S"))
+    tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir=log_dir, histogram_freq=1)
     
     model.fit(
         trainX, trainY,
-        epochs = epochs, # Modify number of epochs
-        batch_size = batch_size, # Modify batch size
-        validation_split = val_split, # Modify validation split
-        shuffle = False, # No shuffle cause time series!
-        metrics = ['mae', 'rmse']
+        epochs = epochs,
+        batch_size = batch_size,
+        validation_split = val_split,
+        shuffle = False,
+        callbacks=[tensorboard_callback]
     )
     
     return model
@@ -214,8 +246,18 @@ validation_loss = model.history.history['val_loss']
 print("Validation Loss: ", validation_loss)
 # -
 
-# Launch TensorBoard
-# %tensorboard --logdir f'methane/models/logs/'
+# ## Launch TensorBoard
+
+# Please open up a system terminal and run the following commands:
+# > cd ~/methane/models
+#
+# > pip install tensorboard
+#
+# > tensorboard --logdir logs/your-name. Replace `your-name` with developer name.
+#
+# > Visit the URL: https://d-kdgirgbbdmbt.studio.us-west-2.sagemaker.aws/jupyter/default/proxy/insert-port-number-here/. Replace `insert-port-number-here` with the port number shown in terminal output.
+#
+# > Ctrl C on terminal to exit
 
 # ## Hyperparameter Tuning
 
@@ -230,7 +272,7 @@ batch_size = []
 val_split = []
 
 # Create combinations of all hyperparameters
-hyperparams = list(product(units, d_rate, loss, optimizer))
+hyperparams = list(product(units, d_rate, loss, optimizer, epochs, batch_size, val_split))
 print(hyperparams)
 print(len(hyperparams))
 
@@ -242,7 +284,7 @@ hp = {
     'loss': [i[2] for i in hyperparams],
     'optimizer': [i[3] for i in hyperparams],
     'epochs': [i[4] for i in hyperparams],
-    'batch_Size': [i[5] for in hyperparams],
+    'batch_size': [i[5] for i in hyperparams],
     'val_split': [i[6] for i in hyperparams]
 }
 
@@ -252,7 +294,7 @@ hp_df
 
 # #### Get Config For Each Model
 
-configs = df.to_dict(orient='records')
+configs = hp_df.to_dict(orient='records')
 configs
 
 # #### Create And Train Models Using Defined Hyperparameters
@@ -262,14 +304,16 @@ trained_models = []
 count = 0
 
 for config in configs:
+    count += 1
     print(f'Model {count}: {list(config.items())}')
     model = train_model(config)
     trained_models.append((config, model, model.history))
     print()
 # -
 
-# Launch TensorBoard
-# %tensorboard --logdir f'methane/models/logs/'
+# #### Launch TensorBoard
+#
+# Follow the steps described above to re-launch tensorboard to view model performance.
 
 # +
 # Add training results into new columns in hyperparameter dataframe
@@ -277,49 +321,45 @@ training_loss = []
 val_loss = []
 training_mae = []
 val_mae = []
-training_rmse = []
-val_rmse = []
 
 # Loop through the model histories
 for hist in trained_models:
     num_epochs = hist[0]['epochs']
     training_loss.append(hist[2].history['loss'][num_epochs - 1])
     training_mae.append(hist[2].history['mae'][num_epochs - 1])
-    training_rmse.append(hist[2].history['rmse'][num_epochs - 1])
     val_loss.append(hist[2].history['val_loss'][num_epochs - 1])
     val_mae.append(hist[2].history['mae'][num_epochs - 1])
-    val_rmse.append(hist[2].history['rmse'][num_epochs - 1])
     
 # Add new loss columns to hyperparameters dataframe (results table)
 hp_df['training_loss'] = training_loss
 hp_df['validation_loss'] = val_loss
 hp_df['training_mae'] = training_mae
-hp_df['validation_mae'] = validation_mae
-hp_df['training_rmse'] = training_rmse
-hp_df['validation_rmse'] = validation_rmse
+hp_df['validation_mae'] = val_mae
+
+hp_df
 # -
 
 # Write hyperparameters dataframe to csv file
-hp_df.to_csv(r'methane/models/' + model_name, index = False, header = True)
+cur_date = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+hp_df.to_csv('/root/methane/models/autoencoder/' + dev_name + "/" + model_name + cur_date + '.csv', index = False, header = True)
 
 # ## Save Best Model
 
-# Find model with lowest mae to save the best model
+# Find model with lowest validation mae to save the best model
 best_model_index = hp_df[hp_df.validation_mae == hp_df.validation_mae.min()].index
-best_model = trained_models[best_model_index]
-best_model.save(f'methane/models/autoencoder/{model_name}_{count}.h5')
+best_model = trained_models[best_model_index[0]][1]
+best_model_name = f'{model_name}_{cur_date}'
+best_model.save(f'/root/methane/models/autoencoder/{dev_name}/{best_model_name}.h5')
+
+# ## Upload Best Model Artifact To S3
+
+client = boto3.client('s3')
+client.upload_file(Filename=f'/root/methane/models/autoencoder/{dev_name}/{best_model_name}.h5', Bucket=bucket, Key=f'models/autoencoder/{best_model_name}.h5')
 
 # ## Plot Best Model
 
 # +
-dev_name = '' # Put your name here
-name_list = file_name.split('.')
-freq_res = name_list[0].split('_')
-freq = freq_res[1]
-resolution = freq_res[2]
-model_name = f'autoencoder_{dev_name}_{freq}_{resolution}'
-
-plot_model(best_model, to_file = f'./{model_name}/images/model_{}_{}.png', show_shapes=True, show_layer_names=True) # Need to figure out naming standared here!
+# plot_model(best_model, to_file = f'./{model_name}/images/model_{}_{}.png', show_shapes=True, show_layer_names=True)
 # -
 
 # ## Evaluate Best Model On Test Data
@@ -328,7 +368,7 @@ best_model.evaluate(testX, testY)
 
 # ## Predict On Test Data
 
-testX_pred = model.predict(testX)
+testX_pred = best_model.predict(testX)
 test_mae_loss = np.mean(np.abs(testX_pred, testX), axis=1)
 
 # ## Anomaly Detection
