@@ -39,6 +39,9 @@
 #
 # Add all necessary imports here.
 
+# Downgrade Tensorflow to version 2.3
+# !pip install tensorflow==2.3
+
 # +
 import os
 import boto3
@@ -58,15 +61,15 @@ from tensorflow import keras
 from sklearn.preprocessing import MinMaxScaler, StandardScaler
 # -
 
+# Important to ensure we are using Tensorflow version 2.3
+print(tf.__version__)
+
 # %matplotlib inline
 # %config InlineBackend.figure_format='retina'
 
 register_matplotlib_converters()
 sns.set(style='whitegrid', palette='muted', font_scale=1.5)
 rcParams['figure.figsize'] = 22, 18
-
-# Important to ensure we are using Tensorflow version 2.3
-print(tf.__version__)
 
 # ## Paths
 
