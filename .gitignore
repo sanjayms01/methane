@@ -86,7 +86,7 @@ target/
 pipeline_runs/
 
 # Model Logs
-model/logs/
+/models/logs
 
 # IPython
 profile_default/
