@@ -81,6 +81,7 @@ target/
 
 # Data
 *.nc
+*.shp
 
 # Pipeline Logs
 pipeline_runs/
