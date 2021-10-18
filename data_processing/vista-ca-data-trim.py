@@ -56,13 +56,31 @@ gdf = gpd.read_file("{}.shp".format(file_name))
 gdf['area'] = gdf['geometry'].to_crs({'init': 'epsg:3395'})\
                .map(lambda p: p.area / 10**6)
 
+lats = np.array(gdf['latitude'])
+lons = np.array(gdf['longitude'])
+        
+gdf['rn_lat_1'] =  np.round(lats, 1)
+gdf['rn_lon_1'] =  np.round(lons, 1)
+
+gdf['rn_lat_2'] =  np.round(lats*5)/5
+gdf['rn_lon_2'] =  np.round(lons*5)/5
+
+gdf['rn_lat_5'] =  np.round(lats*2)/2
+gdf['rn_lon_5'] =  np.round(lons*2)/2
+
+gdf['rn_lat'] =  np.round(lats, 0)
+gdf['rn_lon'] =  np.round(lons, 0)
+
 
 print(gdf.shape)
 gdf.head()
 # -
 
-print(gdf[gdf['vistastype'] != 'Oil and Gas Well'].shape)
 gdf.groupby('vistastype').agg({'area': ['mean','count']})
+
+
+
+
 
 # ### Plot CA
 
@@ -129,10 +147,6 @@ ca_base + points
 
 # ### Trim data to be not over the sites
 
-df.shape
-
-gdf.head()
-
 # +
 # List of all facilities polygons
 
@@ -141,18 +155,6 @@ poly_list = gdf_trim['geometry'].tolist()
 
 print(len(vista_type_list))
 print(len(poly_list))
-
-# +
-# def isInAFacility(row):
-#     '''Given lat, lon. Return Boolean if in California'''
-#     point = Point(row['lon'], row['lat'])
-    
-#     print(row.index)
-#     for poly in poly_list:
-#         if poly.contains(point):
-#             return True
-#     return False
-
 
 # +
 lats = df['lat'].tolist()
@@ -189,16 +191,6 @@ for point in tqdm(processed_points):
         type_and_inFacility.append((None, False))
 
 end = time.time()
-
-# +
-
-print(end-start)
-# -
-
-print(len(type_and_inFacility))
-
-# +
-# df[['lat','lon']][:10].apply(isInAFacility, axis=1)
 # -
 
 df['point_type'] = [tup[0] for tup in tqdm(type_and_inFacility)]
@@ -225,25 +217,17 @@ def write_to_s3(dataframe, file_name):
     dataframe.to_parquet(file_path, compression='gzip')
 
 
+# +
+# write_to_s3(df, 'combined-raw-facility-details-1')
 # -
-
-write_to_s3(df, 'combined-raw-facility-details')
 
 df.groupby('point_type').size()
 
 df.groupby('inFacility').size()
 
-3381/(1215953+3381)
-
 # ### Merge Oil and Gas Well Points
 #
 # * All these places we do not have polygons, only points
-
-gdf_oil_wells.head()
-
-lat_sorted.iloc[-100:,:]
-
-gdf[gdf['vistastype'] == "Natural Gas Station"]
 
 # +
 sample_df = pd.DataFrame(columns=['latitude','longitude','vistastype','geometry','area'])
@@ -277,7 +261,44 @@ ca_base + oil_points
 # plt.show()
 # -
 
-vals = [type(x) for x in gdf_oil_wells.geometry]
-Counter(vals)
+
+
+# ### Make a dataset that aggregates the number of facilities by lat/lon rounded breakdowns
+
+gdf.head()
+
+gdf.groupby('vistastype').agg({'area': ['mean','count']})
+
+gdf_oil_wells = gdf[gdf['vistastype'] == 'Oil and Gas Well']
+print(gdf_oil_wells.shape)
+
+gdf_oil_wells.head()
+
+# +
+bucket = 'methane-capstone'
+subfolder = 'data/oil-well-data'
+s3_path = bucket+'/'+subfolder
+
+def write_to_s3(dataframe, file_name):
+
+    file_name=f'{file_name}.parquet.gzip'
+    file_path = 's3://{}/{}'.format(s3_path, file_name)
+    print(file_path)
+#     dataframe.to_parquet(file_path, compression='gzip')
+
+
+# -
+
+f_name = 'og_wells_rn'
+grouped_df = gdf_oil_wells.groupby(['rn_lat', 'rn_lon']).size().reset_index().rename({0: 'well_count'}, axis=1)
+write_to_s3(grouped_df, f_name)
+
+
+
+
+
+
+
+
 
 
