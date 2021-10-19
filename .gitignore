@@ -82,6 +82,8 @@ target/
 # Data
 *.nc
 *.shp
+/data_processing/weather/era5/raw_data/
+/data_processing/weather/era5/data/
 
 # Pipeline Logs
 pipeline_runs/
