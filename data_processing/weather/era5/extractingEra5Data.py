@@ -22,7 +22,7 @@
 # +
 # # !pip install netcdf4
 # # !pip install h5netcdf
-# REMEMBER TO RESTART KERNEL
+# # REMEMBER TO RESTART KERNEL
 # -
 
 # Initialize notebook environment.
@@ -65,17 +65,43 @@ print(len(locs))
 locs[:5]
 
 # +
-date_list = [datetime.date(2021, 9, 1),
-             datetime.date(2021, 8, 1),
-             datetime.date(2021, 7, 1),
-             datetime.date(2021, 6, 1),
-             datetime.date(2021, 5, 1),
-             datetime.date(2021, 4, 1),
-             datetime.date(2021, 3, 1),
-             datetime.date(2021, 2, 1),
-             datetime.date(2021, 1, 1),
-                 datetime.date(2020, 12, 1),
-                 datetime.date(2020, 11, 1),
+# date_list = [datetime.date(2021, 9, 1),  #done
+#              datetime.date(2021, 8, 1),  #done
+#              datetime.date(2021, 7, 1),  #done
+#              datetime.date(2021, 6, 1),  #done
+#              datetime.date(2021, 5, 1),  #done
+#              datetime.date(2021, 4, 1),  #done
+#              datetime.date(2021, 3, 1),  #done
+#              datetime.date(2021, 2, 1),  #done
+#              datetime.date(2021, 1, 1),  #done
+#                  datetime.date(2020, 12, 1),  #done
+#                  datetime.date(2020, 11, 1),
+#                  datetime.date(2020, 10, 1),
+#                  datetime.date(2020, 9, 1),
+#                  datetime.date(2020, 8, 1),
+#                  datetime.date(2020, 7, 1),
+#                  datetime.date(2020, 6, 1),
+#                  datetime.date(2020, 5, 1),
+#                  datetime.date(2020, 4, 1),
+#                  datetime.date(2020, 3, 1),
+#                  datetime.date(2020, 2, 1),
+#                  datetime.date(2020, 1, 1),
+#                      datetime.date(2019, 12, 1),
+#                      datetime.date(2019, 11, 1),
+#                      datetime.date(2019, 10, 1),
+#                      datetime.date(2019, 9, 1),
+#                      datetime.date(2019, 8, 1),
+#                      datetime.date(2019, 7, 1),
+#                      datetime.date(2019, 6, 1),
+#                      datetime.date(2019, 5, 1),
+#                      datetime.date(2019, 4, 1),
+#                      datetime.date(2019, 3, 1),
+#                      datetime.date(2019, 2, 1),
+#                      datetime.date(2019, 1, 1),
+#                          datetime.date(2018, 12, 1),
+#                          datetime.date(2018, 11, 1)]
+
+date_list = [    datetime.date(2020, 11, 1),
                  datetime.date(2020, 10, 1),
                  datetime.date(2020, 9, 1),
                  datetime.date(2020, 8, 1),
