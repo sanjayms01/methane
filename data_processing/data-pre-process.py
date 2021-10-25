@@ -81,7 +81,10 @@ alt.data_transformers.disable_max_rows()
 
 # +
 start = time.time()
-s3_file_path = 's3://methane-capstone/data/combined-raw-data/combined-raw.parquet.gzip'
+
+
+# s3_file_path = 's3://methane-capstone/data/combined-raw-data/combined-raw.parquet.gzip'
+s3_file_path = 's3://methane-capstone/data/combined-raw-data/combined-raw-facility-oil-weather.parquet.gzip'
 
 df = pd.read_parquet(s3_file_path)
 df['time_utc'] = pd.to_datetime(df['time_utc'])
@@ -91,9 +94,10 @@ print(df.dtypes)
 end = time.time()
 print("Load time", end-start)
 # -
-
-
-
+# np.nanmean([np.nan,np.nan,np.nan,np.nan,1,2,3,4])  #testing out means
+# np.mean([1,2,3,4])  #testing out means
+print(df.columns)
+df.head()
 
 
 #Helper function to calculate distance between raw lat/lon and rounded lat/lon
@@ -111,7 +115,6 @@ def haversine_distance(row, rounded_pair, unit = 'km'):
     return distance
 
 
-
 # ### Process data by resolution and time!
 #
 # * note right now we are not doing anything with `qa_val`
@@ -121,42 +124,78 @@ def get_time_resolution_groups(df, freq, resolution):
     
     bins = []
     groups = []
+    methane_columns = ['time_utc', 'year_month', 'lat', 'lon', 'rn_lat_1', 'rn_lon_1',
+                   'rn_lat_2', 'rn_lon_2', 'rn_lat_5', 'rn_lon_5', 'rn_lat', 'rn_lon',
+                   'qa_val', 'methane_mixing_ratio', 'methane_mixing_ratio_precision',
+                   'methane_mixing_ratio_bias_corrected']
+
+    weather_columns = ['air_pressure_at_mean_sea_level', 'air_temperature_at_2_metres',
+               'air_temperature_at_2_metres_1hour_Maximum',
+               'air_temperature_at_2_metres_1hour_Minimum',
+               'dew_point_temperature_at_2_metres', 'eastward_wind_at_100_metres',
+               'eastward_wind_at_10_metres',
+               'integral_wrt_time_of_surface_direct_downwelling_shortwave_flux_in_air_1hour_Accumulation',
+               'lwe_thickness_of_surface_snow_amount', 'northward_wind_at_100_metres',
+               'northward_wind_at_10_metres',
+               'precipitation_amount_1hour_Accumulation', 'snow_density',
+               'surface_air_pressure']
+       
+    well_columns = ['well_count_rn_1', 'well_count_rn_2', 'well_count_rn_5', 'well_count_rn']
     
     if freq == "1D":
         if resolution == 0.1:
             resolution_gb_cols = ['rn_lat_1','rn_lon_1']
+            well_col = 'well_count_rn_1'
             dist_away_col = 'dist_away_1'
         elif resolution == 0.2:
             resolution_gb_cols = ['rn_lat_2','rn_lon_2']
+            well_col = 'well_count_rn_2'
             dist_away_col = 'dist_away_2'
         elif resolution == 0.5:
             resolution_gb_cols = ['rn_lat_5','rn_lon_5']
+            well_col = 'well_count_rn_5'
             dist_away_col = 'dist_away_5'
         elif resolution == 1.0:
             resolution_gb_cols = ['rn_lat','rn_lon']
+            well_col = 'well_count_rn'
             dist_away_col = 'dist_away'
-            
+  
+
+        
         #Distance away column
         df[dist_away_col] = df.apply(lambda x: haversine_distance(x, resolution_gb_cols), axis=1)
         
         df_reduced = df.groupby([df.time_utc.dt.date] + resolution_gb_cols).agg({'methane_mixing_ratio': ["count","mean"],
                                                             'methane_mixing_ratio_precision':"mean",
                                                             'methane_mixing_ratio_bias_corrected': "mean",
-                                                            dist_away_col: ["min", "max", "mean"],
+                                                            dist_away_col: ["mean"],
+                                                            'air_pressure_at_mean_sea_level': ["mean"], 
+                                                            'air_temperature_at_2_metres': ["mean"],
+                                                            'air_temperature_at_2_metres_1hour_Maximum': ["mean"],
+                                                            'air_temperature_at_2_metres_1hour_Minimum': ["mean"],
+                                                            'dew_point_temperature_at_2_metres': ["mean"], 
+                                                            'eastward_wind_at_100_metres': ["mean"],
+                                                            'eastward_wind_at_10_metres': ["mean"],
+                                                            'integral_wrt_time_of_surface_direct_downwelling_shortwave_flux_in_air_1hour_Accumulation' : ["mean"],
+                                                            'lwe_thickness_of_surface_snow_amount': ["mean"],
+                                                            'northward_wind_at_100_metres': ["mean"],
+                                                            'northward_wind_at_10_metres': ["mean"],
+                                                            'precipitation_amount_1hour_Accumulation': ["mean"],
+                                                            'snow_density': ["mean"],
+                                                            'surface_air_pressure': ["mean"],
+                                                            well_col: ['mean'],               
                                                             'qa_val': [('mode',lambda x:x.value_counts().index[0]), "mean"], #Numerical = Weight, Categorical = Mode
                                                            })
         
+       
         #Flatten MultiIndex
         df_reduced.columns = ['_'.join(col) for col in df_reduced.columns.values]
         df_reduced = df_reduced.reset_index()
         df_reduced = df_reduced.rename(columns={"methane_mixing_ratio_count": "reading_count"})
         
-        
         groups = [df_reduced]
         bins = df_reduced['time_utc'].tolist()
-        
 
-#         print()
         print("Num groups", len(df_reduced))
         
     else:
@@ -167,17 +206,21 @@ def get_time_resolution_groups(df, freq, resolution):
     
             if resolution == 0.1:
                 resolution_gb_cols = ['rn_lat_1','rn_lon_1']
+                well_col = 'well_count_rn_1'
                 dist_away_col = 'dist_away_1'
             elif resolution == 0.2:
                 resolution_gb_cols = ['rn_lat_2','rn_lon_2']
+                well_col = 'well_count_rn_2'
                 dist_away_col = 'dist_away_2'
             elif resolution == 0.5:
                 resolution_gb_cols = ['rn_lat_5','rn_lon_5']
+                well_col = 'well_count_rn_5'
                 dist_away_col = 'dist_away_5'
             elif resolution == 1.0:
                 resolution_gb_cols = ['rn_lat','rn_lon']
-                dist_away_col = 'dist_away'
-
+                well_col = 'well_count_rn'
+                dist_away_col = 'dist_away'               
+                
             #Distance away column
             df_grp[dist_away_col] = df_grp.apply(lambda x: haversine_distance(x, resolution_gb_cols), axis=1)
         
@@ -196,7 +239,22 @@ def get_time_resolution_groups(df, freq, resolution):
             df_reduced = df_grp.groupby(resolution_gb_cols).agg({'methane_mixing_ratio': ["count","mean"],
                                                                 'methane_mixing_ratio_precision':"mean",
                                                                 'methane_mixing_ratio_bias_corrected': "mean",
-                                                                dist_away_col: ["min", "max", "mean"],
+                                                                dist_away_col: ["mean"],
+                                                                'air_pressure_at_mean_sea_level': ["mean"], 
+                                                                'air_temperature_at_2_metres': ["mean"],
+                                                                'air_temperature_at_2_metres_1hour_Maximum': ["mean"],
+                                                                'air_temperature_at_2_metres_1hour_Minimum': ["mean"],
+                                                                'dew_point_temperature_at_2_metres': ["mean"], 
+                                                                'eastward_wind_at_100_metres': ["mean"],
+                                                                'eastward_wind_at_10_metres': ["mean"],
+                                                                'integral_wrt_time_of_surface_direct_downwelling_shortwave_flux_in_air_1hour_Accumulation' : ["mean"],
+                                                                'lwe_thickness_of_surface_snow_amount': ["mean"],
+                                                                'northward_wind_at_100_metres': ["mean"],
+                                                                'northward_wind_at_10_metres': ["mean"],
+                                                                'precipitation_amount_1hour_Accumulation': ["mean"],
+                                                                'snow_density': ["mean"],
+                                                                'surface_air_pressure': ["mean"],
+                                                                well_col: ['mean'],  
                                                                 'qa_val': [('mode',lambda x:x.value_counts().index[0]), "mean"], #Numerical = Weight, Categorical = Mode
                                                                })
 
@@ -239,7 +297,7 @@ def get_processed_df(df, freq, resolution):
 
 
 bucket = 'methane-capstone'
-subfolder = 'data/data-variants'
+subfolder = 'data/data-variants2'
 s3_path = bucket+'/'+subfolder
 
 
@@ -260,15 +318,10 @@ def write_to_s3(dataframe, freq, reso):
     print(file_path)
     dataframe.to_parquet(file_path, compression='gzip')
     
+
+
 # -
-
-
-
-
-
 # ### Run Data Processing
-
-
 
 # +
 RESOLUTIONS = [0.1, 0.2, 0.5, 1.0]
@@ -283,19 +336,23 @@ for FREQUENCY in FREQUENCIES:
         write_to_s3(df_cur, FREQUENCY, RESOLUTION)
 
         print("total time", time.time() - start)
-        
+# -
 
+
+5+5
 
 # +
-# FREQUENCY = "7D"
-# RESOLUTION = 0.5
+# FREQUENCY = "1D"
+# RESOLUTION = 1.0
 
 # start = time.time()
 # df_final = get_processed_df(df, FREQUENCY, RESOLUTION)
 # print("total time", time.time() - start)
-
+# write_to_s3(df_final, FREQUENCY, RESOLUTION)
 # -
+df_final
 
+5+5
 
 
 # ### Save to S3
