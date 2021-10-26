@@ -7,9 +7,9 @@
 #       format_version: '1.5'
 #       jupytext_version: 1.13.0
 #   kernelspec:
-#     display_name: Python 3 (Data Science)
+#     display_name: Python 3 (TensorFlow 2.3 Python 3.7 CPU Optimized)
 #     language: python
-#     name: python3__SAGEMAKER_INTERNAL__arn:aws:sagemaker:us-west-2:236514542706:image/datascience-1.0
+#     name: python3__SAGEMAKER_INTERNAL__arn:aws:sagemaker:us-west-2:236514542706:image/tensorflow-2.3-cpu-py37-ubuntu18.04-v1
 # ---
 
 # # ML Pipeline Template
@@ -51,6 +51,7 @@ from datetime import datetime
 import time
 from itertools import product
 
+
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -89,8 +90,8 @@ print('s3_path: ', s3_path)
 # +
 #CHOOSE CONFIG
 
-frequency = '1D' 
-round_level = 'rn_2'
+frequency = '1D'
+resolution = 'rn'
 
 #### #### #### #### ####
 
@@ -98,15 +99,15 @@ lat_str=''
 lon_str=''
 dist_away_str=''
 
-if '1' in round_level:
+if '1' in resolution:
     lat_str = 'rn_lat_1'
     lon_str = 'rn_lon_1'
     dist_away_str = 'dist_away_1_mean'
-elif '2' in round_level:
+elif '2' in resolution:
     lat_str = 'rn_lat_2'
     lon_str = 'rn_lon_2'
     dist_away_str = 'dist_away_2_mean'
-elif '5' in round_level:
+elif '5' in resolution:
     lat_str = 'rn_lat_5'
     lon_str = 'rn_lon_5'
     dist_away_str = 'dist_away_5_mean'
@@ -117,13 +118,15 @@ else:
     dist_away_str = 'dist_away_mean'
 
 
-file_name=f'data_{frequency}_{round_level}.parquet.gzip' # Insert specific data variant file name here
+file_name=f'data_{frequency}_{resolution}.parquet.gzip' # Insert specific data variant file name here
 data_location = 's3://{}/{}'.format(s3_path, file_name)
 df = pd.read_parquet(data_location)
 df['time_utc'] = pd.to_datetime(df['time_utc'])
 print(df.shape)
 df.head()
 # -
+
+
 
 # Define columns we want to use
 
@@ -178,65 +181,56 @@ print(df_g_lat_lon.shape)
 df_g_lat_lon.head()
 
 # +
-start_dt = df.index.min()
-end_dt = df.index.max()
+# start_dt = df.index.min()
+# end_dt = df.index.max()
 
-print(start_dt)
-print(end_dt)
+# print(start_dt)
+# print(end_dt)
 
-time_table = pd.DataFrame(pd.date_range(start=start_dt, end=end_dt), columns=['time_utc'])
-print(time_table.shape)
-time_table.head()
-# -
-
-all_time_lat_lon = time_table.merge(df_g_lat_lon, how='cross')
-print(all_time_lat_lon.shape)
-all_time_lat_lon.head()
-
-
-df = df.reset_index()
-print(df.shape)
-df.head()
+# time_table = pd.DataFrame(pd.date_range(start=start_dt, end=end_dt), columns=['time_utc'])
+# print(time_table.shape)
+# time_table.head()
 
 # +
-final_df = df.merge(all_time_lat_lon, on=['time_utc', lat_str, lon_str], how='outer')
+# For - GPU
+# time_table['key'] = 0
+# df_g_lat_lon['key'] = 0
+# all_time_lat_lon = time_table.merge(df_g_lat_lon, on='key', how='outer').drop('key', axis = 1)
 
+# +
+# all_time_lat_lon = time_table.merge(df_g_lat_lon, how='cross')
+# all_time_lat_lon = all_time_lat_lon.sort_values(by=['time_utc', lat_str, lon_str], ascending=[True, False, True])
 
+# print(all_time_lat_lon.shape)
+# all_time_lat_lon.head()
 
-print(final_df.shape)
-final_df.head()
+# +
+# df = df.reset_index()
+# print(df.shape)
+# df.head()
+
+# +
+# final_df = df.merge(all_time_lat_lon, on=['time_utc', lat_str, lon_str], how='outer')
+# print(final_df.shape)
+# final_df.head()
+
+# +
+# final_df.isnull().sum()
+
+# +
+# final_df.head()
 # -
 
-final_df.isnull().sum()
-
-final_df.head()
-
-final_df[[lat_str, lon_str]].sort_values(by=[lat_str, lon_str], ascending=[False, True])
-
-
-
-boom.shape
-
-len(set(df.index))
-
-(1038, 964, 7, 4)
-
-
-
-# ### Todos:
+# ### Final Overall Shape:
 #
-# * fill in time rows
-# * fill in all combination of lat/lon rows
-# * if we get at runtime a poitn we don't have in our classes, find the closest class and treat it as that
-
-
-
-
+#
+# ### (None, 964, 7, 4)
+#
 
 # ## Train / Test Split
 
 # +
-final_df = final_df.set_index('time_utc')
+final_df = df #df.set_index('time_utc')
 train_date_threshold = '2021-01-01' 
 validation_date_threshold = '2021-06-01'
 
@@ -247,12 +241,7 @@ test = final_df.loc[final_df.index >= validation_date_threshold]
 print(train.shape, validation.shape, test.shape)
 # -
 
-# ### Notes:
-#
-# * we might need some special treatment of the lat/lon, apply the embedding layer Jaclyn worked on here itself?
-# * In https://project.inria.fr/aaltd19/files/2019/08/AALTD_19_Karadayi.pdf they treat the locations as categorical places, so we would need to do that 
-
-train
+validation.head()
 
 # ### Todos:
 
@@ -271,6 +260,9 @@ train[feature_cols] = scaler.transform(train_input)
 validation[feature_cols] = scaler.transform(val_input)
 test[feature_cols] = scaler.transform(test_input)
 
+
+validation.head()
+
 # -
 
 print('Print # of time steps in train', train.index.nunique())
@@ -281,479 +273,253 @@ print('Print # of time steps in test', test.index.nunique())
 print()
 print("frequency", frequency)
 
-train.head()
+# +
+# For - GPU Cleanup
+# df_g_lat_lon = df_g_lat_lon.drop('key', axis = 1)
+# time_table = df_g_lat_lon.drop('key', axis = 1)
+# -
 
-for ind, row in df_g_lat_lon.iterrows():
-    print(row[lat_str], row[lon_str])
-    break
-
-
+window_length = 30
+# sorted_lat_lons = [tuple((pair[0], pair[1])) for pair in 
+#                    df_g_lat_lon.values]
+# mask_identifier = 0
 
 # +
-def create_data_lstm(data, window_length):
+# def create_data_lstm_v1(data, window_length):
+#     '''
+#     Output shape ---> (None, 964, 7, 4)
+#     '''
+#     start= time.time()
+    
+#     #time
+#     unique_time_steps = sorted(list(set(data.index.tolist())))
+#     tot_time_length = len(unique_time_steps)
+    
+    
+#     #geo
+#     unique_lat_lons = [tuple((pair[0], pair[1])) for pair in df_g_lat_lon.values]
+    
+#     process_start= time.time()
+#     print("Sort time taken: ", process_start - start)
 
-    '''
-    Output shape ---> (None, 964, 7, 4)
-    '''
+#     print()
+#     print('total timesteps', tot_time_length)
+
+#     outer_ts_data= [] #shape = (tot_time_length, len(df_g_lat_lon), window_length, len(feature_cols)))
     
+#     for outer_ts_index in range((tot_time_length - window_length)):
+        
+#         print("Outer TS ", unique_time_steps[outer_ts_index])
+#         outer_ts_all_geo_data = [] #shape = (len(df_g_lat_lon), window_length, len(feature_cols)))
+        
+#         # df_g_lat_lon is already sorted to go top down of CA, left to right
+#         for pair in sorted_lat_lons:
+            
+#             cur_lat, cur_lon = pair
+#             df_cur_geo_day = final_df[(final_df[lat_str] == cur_lat) & (final_df[lon_str] == cur_lon)]
+# #             print('cur lat/lon shape:', df_cur_geo_day.shape) #this should be number of (1038/frequency, number columns)
+            
+#             ## MIGHT NEED TO FILL NAN's
+#             x_vals_inner_ts_windows = [] # shape = (window_length, len(feature_cols)
+            
+#             # For each time step inside the window of size `window_length`
+#             for inner_ind, inner_ts in enumerate(unique_time_steps[outer_ts_index : outer_ts_index+window_length]):
+#                 df_cur_inner_ts = df_cur_geo_day[df_cur_geo_day.index == inner_ts][feature_cols]
+#                 x_vals_inner_ts_windows.append(df_cur_inner_ts.values[0]) #Had to add a zero index here!! 
+
+#             outer_ts_all_geo_data.append(x_vals_inner_ts_windows)
+        
+# #         print("Adding to Outer TS Data", outer_ts_all_geo_data.shape)
+#         outer_ts_data.append(outer_ts_all_geo_data)
     
-    start= time.time()    
+#     end = time.time()
+#     print(end-process_start)
+#     return tf.constant(np.array(outer_ts_data)) , tf.constant(np.array(outer_ts_data))
+
+
+# train_samp = train[:3000]
+# val_samp = validation[:3000]
+# test_samp = test[:3000]
+
+# trainX, trainY = create_data_lstm_v1(train_samp, window_length)
+# valX, valY = create_data_lstm_v1(val_samp, window_length)
+# testX, testY = create_data_lstm_v1(test_samp, window_length)
+
+# -
+
+# ### BREAK 
+
+print(final_df.shape)
+final_df
+
+
+# + jupyter={"outputs_hidden": true}
+def create_data_lstm_v2(data, window_length):
+    '''
+    '''
+    start= time.time()
+    data_tracker = []
+    
+    #time
     unique_time_steps = sorted(list(set(data.index.tolist())))
-    tot_time_length = len(unique_time_steps) 
-    windowed_time_range = tot_time_length - window_size
+    tot_time_length = len(unique_time_steps)
+    
+    
+    #geo
+    data_g_lat_lon = data.groupby([lat_str, lon_str]).size().reset_index()
+    data_g_lat_lon = data_g_lat_lon[[lat_str, lon_str]].sort_values(by=[lat_str, lon_str], ascending=[False, True])
+    unique_lat_lons = [tuple((pair[0], pair[1])) for pair in data_g_lat_lon.values]
+    
+    
+    process_start= time.time()
+    print("Sort time taken: ", process_start - start)
+
     print()
     print('total timesteps', tot_time_length)
 
-    x_values = []
-    y_values = []
+    outer_ts_data= [] #shape = (tot_time_length, len(df_g_lat_lon), window_length, len(feature_cols)))
     
-    
-    for i in range(windowed_time_range):
+    for outer_ts_index in range((tot_time_length - window_length)):
         
-        cur_time_step = []
+        print("Outer TS ", unique_time_steps[outer_ts_index])        
+        # df_g_lat_lon is already sorted to go top down of CA, left to right
+        for pair in unique_lat_lons:
+            
+            cur_lat, cur_lon = pair
+            df_cur_geo_day = data[(data[lat_str] == cur_lat) & (data[lon_str] == cur_lon)]
     
-        for ind, row in df_g_lat_lon.iterrows():
+            if not df_cur_geo_day.empty:
+                ## MIGHT NEED TO FILL NAN's
+                x_vals_inner_ts_windows = [] # shape = (window_length, len(feature_cols)
 
-            cur_lat, cur_lon = row[lat_str], row[lon_str]
+                # For each time step inside the window of size `window_length`
+                for inner_ind, inner_ts in enumerate(unique_time_steps[outer_ts_index : outer_ts_index+window_length]):
+                    df_cur_inner_ts = df_cur_geo_day[df_cur_geo_day.index == inner_ts][feature_cols]
+                    if not df_cur_inner_ts.empty:
+                        x_vals = df_cur_inner_ts.values[0]
+                    else:
+                        x_vals = np.zeros(4)
+                    x_vals_inner_ts_windows.append(x_vals)
 
-            cur_geo_day_df = final_df[ (final_df[lat_str] == cur_lat) & (final_df[lon_str] == cur_lon)]
-            print('cur lat/lon shape:', cur_geo_day_df.shape) #this should be data.shape
+                outer_ts_data.append(x_vals_inner_ts_windows)
 
-
-            x_vals_ts_windows = []
-
-            for i in range(windowed_time_range):
-                #print(i)
-                x_vals_ts_windows.append(cur_geo_day_df.iloc[i:(i+window_length)].values)
-            
-            
-            
-            
-            
-
-#             #Readings
-#             cur_day_data = tf.cast(tf.constant(cur_day_df.iloc[:, :].values), tf.float64)
-
-# #             print("cur_day_data.shape", cur_day_data.shape)
-
-#             #Paddings
-#             pad_row, pad_col  = cur_day_data.shape[0], cur_day_data.shape[1]
-#             #print('pad_row', pad_row)
-#             #print('pad_col', pad_col)
-            
-#             pad = tf.zeros(
-#                 [rounded_max_reading_per_day-pad_row, pad_col], dtype=tf.float64
-#             )
-
-# #             print("pad.shape", pad.shape)
-# #             print()
-
-#             cur_day_x = tf.concat([cur_day_data, pad], 0)            
-#             x_values_cur_ts_window.append(cur_day_x)
-
-#         x_values.append(x_values_cur_ts_window)
-
-#     end= time.time()
-#     print(end-start, '\n')
-
-#     print(type(x_values))
-#     print(len(x_values))
+                #For Tracking outcome labels
+                cur_meta = (unique_time_steps[outer_ts_index], cur_lat, cur_lon)
+                cur_meta_list = list((cur_meta,) * window_length)
+                data_tracker.extend(cur_meta_list)
+                
+            else:
+                print("Nothing in here 3", pair, "Outer TS", unique_time_steps[outer_ts_index])
     
-#     #Input + Output are the same!
-#     x_result = tf.expand_dims(x_values, 0)
-#     y_result = tf.expand_dims(x_values, 0)
-
-#     print('x_result.shape', x_result.shape)
-#     print('y_result.shape', y_result.shape)
-
-#     return x_result, y_result
+    end = time.time()
+    print(end-process_start)
+    
+    x_result = np.array(outer_ts_data)
+    return x_result, x_result, data_tracker
+#     return tf.constant(x_result), tf.constant(x_result)
 
 
+# train_samp = train[:7500]
+# val_samp = validation[:7500]
+# test_samp = test[:7500]
 
-create_sequences_advanced(train, window_length)
+
+trainX, trainY, trainTrack = create_data_lstm_v2(train, window_length)
+valX, valY, valTrack= create_data_lstm_v2(validation, window_length)
+testX, testY, testTrack = create_data_lstm_v2(test, window_length)
+
+# -
 
 
 
-# trainX, trainY = create_sequences_advanced(train, window_length)
-# valX, valY = create_sequences_advanced(validation, window_length)
-# testX, testY = create_sequences_advanced(test, window_length)
+# ### Check Data
 
+print(trainX.shape)
+print(valX.shape)
+print(testX.shape)
+print()
+print(trainTrack[0], trainTrack[-1])
+print(valTrack[0], valTrack[-1])
+print(testTrack[0], testTrack[-1])
+
+
+# +
+def write_np(fpath, arr):
+    # reshaping the array from 3D matrice to 2D matrice.
+    arrReshaped = arr.reshape(arr.shape[0], -1)
+    # saving reshaped array to file.
+    np.savetxt(fpath, arrReshaped)
+
+def load_np(fpath, feature_count):
+    # retrieving data from file.
+    loadedArr = np.loadtxt(filename)
+    # This loadedArr is a 2D array, therefore we need to convert it to the original array shape.
+    # reshaping to get original matrice with original shape.
+    loadedOriginal = loadedArr.reshape(loadedArr.shape[0], loadedArr.shape[1] // feature_count, feature_count)
+    return loadedOriginal
 
 
 # -
 
-def create_data_dnn(data, window_length):
-    return
+# ### Write Data locally if it took long to load
+
+if False:
+    local_path = 'windowed_data/'+ freq + "_" + resolution + "_" + str(window_length)
+    print(local_path)
+
+    if not os.path.exists(local_path): 
+        os.mkdir(local_path)
+    else:
+        print('path exists')
+
+    for d in ['train','val','test']:
+
+        if d == 'train':
+
+            write_np(local_path+'/'+d, trainX)
+            textfile = open(f"{local_path}/trainTrack.txt", "w")
+            for element in trainTrack:
+                textfile.write(str(element) + "\n")
+            textfile.close()        
+
+        elif d == 'val':
+
+            write_np(local_path+'/'+d, valX)
+
+            textfile = open(f"{local_path}/valTrack.txt", "w")
+            for element in valTrack:
+                textfile.write(str(element) + "\n")
+            textfile.close() 
+
+        elif d == 'test':        
+            write_np(local_path+'/'+d, testX)        
+            textfile = open(f"{local_path}/testTrack.txt", "w")
+            for element in testTrack:
+                textfile.write(str(element) + "\n")
+            textfile.close()
 
 
+    textfile = open(f"{local_path}/feature_cols.txt", "w")
+    for element in feature_cols:
+        textfile.write(element + "\n")
+    textfile.close()
 
-print('(number of training examples, time sequence window, number of rows per day, number of features)')
-print()
-print(trainX.shape)
+    print("Finished!")
 
-
-
-# * Check that predicting 0s on the padding doesn't mess up the loss calcualtion
-#     * look at masking methods here, only use the data thats there 
-
-
-
+# # Things We Tried:
 #
-# Phase 1:
+# * Masking with -999, masking keras layer, losses were really really high. Greater than those with 0 mask. 
 #
-#     * convert (790, 6) to a 1-D vector (SOME_D = 128) --> (790, 128)
-#         * max, avg pooling some dense layers 
-#         * dense layers to represent lat/lon
-#         * embedding for lat/lon
-#         * distance attention - after computing haversine distance
-#             * potentially get rid of lat/lon, node (790,4)
-#             * 790, 790 will store distance between points.
-#             * https://www.kaggle.com/c/stanford-covid-vaccine/code?competitionId=22111&searchQuery=distance+attention
-#             * https://www.kaggle.com/akashsuper2000/autoencoder-pretrain-gnn-attn-cnn
-#         
-#     * X: (750, 3 , SOME_D), Y:(METHANE)
+# * masking with 0  --> : 104.7146 - mean_squared_error: 193878.4375 - mean_absolute_error: 105.1299 - val_loss: 89.5817 - val_mean_squared_error: 167090.7344 - val_mean_absolute_error: 90.1758
 #
-# Phase 2:
+# * We only look at data that we have
 #
-# LSTM:
-#
-#     * take out time step if not bi-directional 
-#     * keep the long sequences (all time step info)
-#     * sequence to sequence is possible
+# * We used Frequency 5D, resolution 0.5, and padded to make sure that the shape matched the window length
+#     * Both these approaches have no regulairzaiton and only use 30% of data to train
+#     * 143/143 [==============================] - 2s 16ms/step - loss: 0.0688 - mean_squared_error: 0.0191 - mean_absolute_error: 0.0687 - val_loss: 0.0595 - val_mean_squared_error: 0.0127 - val_mean_absolute_error: 0.0594
+#     * with mask: 3s 18ms/step - loss: 0.0550 - mean_squared_error: 0.0116 - mean_absolute_error: 0.0550 - val_loss: 0.0485 - val_mean_squared_error: 0.0088 - val_mean_absolute_error: 0.0485
 #     
-# Input: (750, 3, 790, 6)
-# Output: 1-shifted right, (750, 3, 790, 6)
-#     * no data leakage without windowing
-
-
-
-# ### Questions
-#
-# * is this the best way to represent the time series data?
-# * should it be batched any different by location chunks?
-# * Structure wise I am trying to represent temporal and spatial features, does an embedding layer make sense for the spatial part? Any thoughts here?
-
-# +
-# """
-# Create windows for LSTM
-#     - As required by LSTM networks, we require to reshape an input data into 'n_samples' x 'timesteps' x 'n_features'.
-#     - Number of time steps to look back. Larger sequences (look further back) may improve forecasting.
-# """
-# seq_size = 3
-
-# def create_sequences_simple(x, y, seq_size=1):
-#     x_values = []
-#     y_values = []
-
-#     for i in range(len(x)-seq_size):
-#         x_values.append(x.iloc[i:(i+seq_size)].values)
-#         y_values.append(y.iloc[i+seq_size])
-        
-#     return np.array(x_values), np.array(y_values)
-
-# trainX, trainY = create_sequences_simple(train[['methane_mixing_ratio_bias_corrected_mean']], train['methane_mixing_ratio_bias_corrected_mean'], seq_size)
-# testX, testY = create_sequences_simple(test[['methane_mixing_ratio_bias_corrected_mean']], test['methane_mixing_ratio_bias_corrected_mean'], seq_size)
-
-# print("trainX Shape: ", trainX.shape, "trainY Shape: ", trainY.shape)
-# print("testX Shape: ", testX.shape, "testY Shape: ", testY.shape)
-# -
-
-tuple(trainX.shape)
-
-# ## Spatial Embedding Section
-#
-# A section to work through building out the spatial embeddings representation to be inputted as a layer for the model.
-
-# +
-print(df['rn_lat_2'].nunique())
-print(df['rn_lon_2'].nunique())
-
-print(train['rn_lat_2'].nunique())
-print(train['rn_lon_2'].nunique())
-
-print(test['rn_lat_2'].nunique())
-print(test['rn_lon_2'].nunique())
-# -
-
-print(sorted(df['rn_lat_2'].unique().tolist()))
-# print(df['rn_lon_2'].nunique())
-
-# +
-# # GEOGRAPHIC EMBEDDINGS CODE STARTS HERE
-# # create dictionary of each lat/lon pair
-# lats = np.array(sorted(df[lat_str].unique().tolist()))
-# lons = np.array(sorted(df[lon_str].unique().tolist()))
-# pairs = []
-
-# for lat in lats:
-#     for lon in lons:
-#         pairs.append((round(lat, 1),round(lon,1)))
-        
-# print(len(pairs))
-
-# # create haversine calculation
-# # these calcs take too long for 0.2, 0.1 resolutions. Can filter by pairs that are present in the data
-
-# def haversine_distance(point_a, point_b, unit = 'km'):
-
-#     lat_s, lon_s = point_a[0], point_a[1] #Source
-#     lat_d, lon_d = point_b[0], point_b[1] #Destination
-#     radius = 6371 if unit == 'km' else 3956 # Radius of earth in kilometers. Use 3956 for miles. Determines return value units.
-
-#     dlat = np.radians(lat_d - lat_s)
-#     dlon = np.radians(lon_d - lon_s)
-#     a = np.sin(dlat/2) * np.sin(dlat/2) + np.cos(np.radians(lat_s)) * np.cos(np.radians(lat_d)) * np.sin(dlon/2) * np.sin(dlon/2)
-#     c = 2 * np.arctan2(np.sqrt(a), np.sqrt(1-a))
-#     distance = radius * c
-#     return distance
-
-# # create matrix of distances (equivalent to co-occurence matrix for word embeddings)
-# # these calcs take too long for 0.2, 0.1 resolutions. Can filter by pairs that are present in the data
-
-# start=time.time()
-# n = len(pairs)
-# distances = np.zeros((n,n))
-
-# for a in range(n):
-#     for b in range(n):
-#         distances[a][b] = haversine_distance(pairs[a], pairs[b])
-
-# end=time.time()
-# print(distances.shape, end-start)
-
-# #SVD
-# from sklearn.decomposition import TruncatedSVD
-# def SVD(X, d=100):
-#     """Returns word vectors from SVD.
-    
-#     Args:
-#       X: m x n matrix
-#       d: word vector dimension
-      
-#     Returns:
-#       Wv : m x d matrix, each row is a word vector.
-#     """
-#     transformer = TruncatedSVD(n_components=d, random_state=1)
-#     Wv = transformer.fit_transform(X)
-#     # Normalize to unit length
-#     Wv = Wv / np.linalg.norm(Wv, axis=1).reshape([-1,1])
-#     return Wv, transformer.explained_variance_
-
-
-# # # +
-# # get final embeddings
-
-# d = 10 # embedding dimension
-# embeddings = SVD(distances, d=d)[0]
-
-
-# # create dict w/ key = lat/lon pair, value = embedding vector
-
-# emb_dict = {}
-
-# for i in range(len(pairs)):
-#     emb_dict[pairs[i]] = embeddings[i]
-    
-# # print(emb_dict)
-
-# # # +
-# # test out how it worked on a few points
-
-# from scipy.spatial import distance
-
-# point_a = emb_dict[(32.2, -120.4)]
-# point_b = emb_dict[(32.2, -121.4)] # very close to point_a
-# point_c = emb_dict[(32.2, -115.4)] # further from point_a
-# point_d = emb_dict[(42.2, -115.4)] # very far from point_a
-
-# print(f'between points a and b: {distance.euclidean(point_a, point_b)}')
-# print(f'between points a and c: {distance.euclidean(point_a, point_c)}')
-# print(f'between points a and d: {distance.euclidean(point_a, point_d)}')
-# # -
-
-
-# -
-
-print('(number of training examples, time sequence window, number of rows per day, number of features)')
-print()
-print(trainX.shape)
-
-trainX.shape
-
-trainY.shape
-#shape here should be (746, 790, 6)
-
-trainX.shape[1:]
-
-
-
-# * VAE for image reconstruction, layeres that are de-convolution
-# * Video VAEs also capture time 
-#
-
-
-
-
-
-# +
-#Input shape
-inputs = keras.Input(shape=trainX.shape[1:])
-
-### ### Neural Network Begins ### ### 
-dense_1 = layers.Dense(128, activation='relu')
-x = dense_1(inputs)
-
-dense_2 = layers.Dense(128, activation='relu')
-x = dense_2(x)
-
-avg_pool = layers.TimeDistributed(layers.GlobalAveragePooling1D()) #Here we can do flatten as well,
-# max_pool = layers.MaxPooling1D(pool_size=2)
-#Weight average of max vs. avg. ---> GEM pool
-
-output_avg = avg_pool(x)
-# output_max = max_pool(x)
-
-# x = layers.Concatenate(output_avg, output_max) #to join the maxpool and average pool 
-# layer_3 = layers.Flatten()
-
-# Create the layers of the model
-lstm_enc_1 = keras.layers.LSTM(units=64,)(output_avg)
-# lstm_enc_2 = keras.layers.LSTM(units=128)(lstm_enc_1)
-
-drop_1 = keras.layers.Dropout(rate=0.2)(lstm_enc_1)
-repeat = keras.layers.RepeatVector(n=trainX.shape[1])(drop_1)
-lstm_dec_2 = keras.layers.LSTM(units=64, return_sequences=True)(repeat)
-drop_2 = keras.layers.Dropout(rate=0.2)(lstm_dec_2)
-dense_3 = keras.layers.Dense(units=32)(drop_2)
-dense_4 = keras.layers.Dense(units=1)(dense_3)
-outputs = dense_4
-
-model = keras.Model(inputs=inputs, outputs=outputs, name="methane_spatio_temporal")
-model.summary()
-# -
-
-# * Use auto-encoder pre-training to learn back the input vector
-# * with distance attention 
-
-# Compile the model
-model.compile(loss='mae', optimizer='adam', metrics=['mae'])
-
-model.fit(
-    trainX, trainY,
-    epochs = 5,
-    validation_split = 0.2,
-    shuffle = False,
-)
-
-
-
-
-
-
-
-
-
-
-# ## Define Model Config
-
-# Define model config (Add all necessary model arguments and hyperparameters)
-config = {
-    'units': 64,
-    'd_rate': 0.2,
-    'loss': 'mae',
-    'optimizer': 'adam',
-    'epochs': 2,
-    'batch_size': 32,
-    'val_split': 0.1
-}
-
-# ## Define Model Name
-
-# +
-dev_name = '' # Put your name here
-name_list = file_name.split('.')
-freq_res = name_list[0].split('_')
-freq = freq_res[1]
-
-if (len(freq_res) == 4):
-    resolution = freq_res[2] + freq_res[3]
-else:
-    resolution = freq_res[2]
-    
-model_name = f'autoencoder_{dev_name}_{freq}_{resolution}'
-print("Model Name: ", model_name)
-
-
-# -
-
-# ## Create Model
-
-def create_model(config):
-    # Initialize the model
-    model = keras.Sequential()
-    
-    # Get model config params
-    units = config['units']
-    rate = config['d_rate']
-
-    # Create the layers of the model
-    model.add(keras.layers.LSTM(units=units, input_shape = (trainX.shape[1], trainX.shape[2])))
-    model.add(keras.layers.Dropout(rate=rate))
-    model.add(keras.layers.RepeatVector(n=trainX.shape[1]))
-    model.add(keras.layers.LSTM(units=units, return_sequences=True))
-    model.add(keras.layers.Dropout(rate=rate))
-    model.add(keras.layers.TimeDistributed(keras.layers.Dense( units=trainX.shape[2])))
-    
-    return model
-
-
-# Create the model and display its summary
-model = create_model(config)
-model.summary()
-
-
-# ## Train Model
-
-def train_model(config):
-    # Create the model
-    model = create_model(config)
-    
-    # Get model config values
-    loss = config['loss']
-    optimizer = config['optimizer']
-    epochs = config['epochs']
-    batch_size = config['batch_size']
-    val_split = config['val_split']
-    
-    # Compile the model
-    model.compile(loss=loss, optimizer=optimizer, metrics=['mae'])
-    
-    # Set up Tensorboard callback
-    log_dir = os.path.join(f"{ROOT_DIR}/logs/{dev_name}", model_name + '_' + datetime.datetime.now().strftime("%Y%m%d-%H%M%S"))
-    tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir=log_dir, histogram_freq=1)
-    
-    model.fit(
-        trainX, trainY,
-        epochs = epochs,
-        batch_size = batch_size,
-        validation_split = val_split,
-        shuffle = False,
-        callbacks=[tensorboard_callback]
-    )
-    
-    return model
-
-
-# +
-model = train_model(config)
-
-# View training and validation loss
-training_loss = model.history.history['loss']
-print("Training Loss: ", training_loss)
-
-validation_loss = model.history.history['val_loss']
-print("Validation Loss: ", validation_loss)
-# -
+#     * Able to complete the full model, but only able to achieve around 8% accuracy with the spatio temporal model on this data.
 
 # ## Launch TensorBoard
 
@@ -767,6 +533,483 @@ print("Validation Loss: ", validation_loss)
 # > Visit the URL: https://d-kdgirgbbdmbt.studio.us-west-2.sagemaker.aws/jupyter/default/proxy/insert-port-number-here/. Replace `insert-port-number-here` with the port number shown in terminal output.
 #
 # > Ctrl C on terminal to exit
+
+# ## Generic Modelling Config
+#
+# - Function to get model `run_id`
+
+# +
+dev_name = 'karthik'
+assert dev_name != '', "Fill in your name"
+
+
+from tensorflow.keras import backend as K
+
+def getRunID(custom_name, cur_config):
+    
+    config_parts = [str(k) +"_" + str(v) for k, v in cur_config.items()]
+    conf_str = "-".join(config_parts)
+    model_name = f'ae_{custom_name}:{conf_str}_{frequency}_{resolution}_{dev_name}'
+    print("Model Name: ", model_name)
+    return model_name
+
+
+early_stopping = tf.keras.callbacks.EarlyStopping(
+    monitor='val_loss', min_delta=1e-2, patience=5, verbose=0, mode='auto',
+    baseline=None, restore_best_weights=True)
+
+
+def root_mean_squared_error_custom(y_true, y_pred):
+    return K.sqrt(K.mean(K.square(y_pred - y_true))) 
+
+
+losses = [tf.losses.MeanAbsoluteError(), tf.losses.MeanSquaredError(), root_mean_squared_error_custom]
+
+loss_to_use = losses[1]
+track_metrics = [tf.keras.metrics.RootMeanSquaredError(), tf.metrics.MeanSquaredError(), tf.losses.MeanAbsoluteError()]
+
+input_shape = (window_length, len(feature_cols))
+input_shape
+# -
+
+# ### Model 1
+
+getRunID('100unitLSTM', config)
+
+
+
+trainX.shape[0]/200
+
+# +
+# Define model config (Add all necessary model arguments and hyperparameters)
+config = {
+    'd_rate': 0.1,
+    'optimizer': 'adam',
+    'epochs': 100,
+    'batch_size': 64
+}
+
+run_id = getRunID('100unitLSTM', config)
+
+# Set up Tensorboard callback
+log_dir = os.path.join(f"{ROOT_DIR}/logs/{dev_name}", run_id + '_' + datetime.now().strftime("%Y%m%d-%H%M%S"))
+print(log_dir)
+tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir=log_dir, histogram_freq=1)
+
+
+# +
+model = keras.Sequential()
+model.add(tf.keras.layers.Masking(mask_value=0.0, input_shape=input_shape))
+model.add(keras.layers.LSTM(100, input_shape=input_shape, activation='relu', return_sequences=False, name='encoder_1'))
+model.add(keras.layers.Dropout(rate=config['d_rate']))
+model.add(keras.layers.RepeatVector(window_length, name='encoder_decoder_bridge'))
+model.add(keras.layers.LSTM(100, activation='relu', return_sequences=True, name='decoder_1'))
+model.add(keras.layers.Dropout(rate=config['d_rate']))
+model.add(keras.layers.TimeDistributed(keras.layers.Dense(len(feature_cols))))
+
+
+model.compile(loss = loss_to_use,
+              optimizer = config['optimizer'],
+              metrics = track_metrics 
+             )
+
+# model.build()
+model.summary()
+
+
+# -
+
+history = model.fit(x=trainX,
+                    y=trainY,
+                    validation_data=(valX, valY), 
+                    epochs = config['epochs'],
+                    batch_size = config['batch_size'],
+                    shuffle=False, 
+                    callbacks=[early_stopping, tensorboard_callback])
+
+
+# ## Version 2
+
+# +
+# Define model config (Add all necessary model arguments and hyperparameters)
+config = {
+    'd_rate': 0.2,
+    'optimizer': 'adam',
+    'epochs': 50,
+    'batch_size': 128,
+}
+
+run_id = getRunID('256_128_64_w_drate_no_init_unitLSTM', config)
+
+# Set up Tensorboard callback
+log_dir = os.path.join(f"{ROOT_DIR}/logs/{dev_name}", run_id + '_' + datetime.now().strftime("%Y%m%d-%H%M%S"))
+
+print()
+print(log_dir)
+tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir=log_dir, histogram_freq=1)
+
+
+# +
+model = keras.Sequential()
+model.add(tf.keras.layers.Masking(mask_value=0.0, input_shape=input_shape))
+model.add(keras.layers.LSTM(256, activation='relu', return_sequences=True, name='encoder_1'))
+model.add(keras.layers.Dropout(rate=config['d_rate']))
+model.add(keras.layers.LSTM(128, activation='relu', return_sequences=True, name='encoder_2'))
+model.add(keras.layers.Dropout(rate=config['d_rate']))
+model.add(keras.layers.LSTM(64, activation='relu', return_sequences=False, name='encoder_3'))
+model.add(keras.layers.RepeatVector(window_length, name='encoder_decoder_bridge'))
+model.add(keras.layers.LSTM(64, activation='relu', return_sequences=True, name='decoder_1'))
+model.add(keras.layers.Dropout(rate=config['d_rate']))
+model.add(keras.layers.LSTM(128, activation='relu', return_sequences=True, name='decoder_2'))
+model.add(keras.layers.Dropout(rate=config['d_rate']))
+model.add(keras.layers.LSTM(256, activation='relu', return_sequences=True, name='decoder_3'))
+model.add(keras.layers.Dense(128, activation='relu', name='dense_1'))
+model.add(keras.layers.Dense(64, activation='relu', name='dense_2'))
+model.add(keras.layers.TimeDistributed(keras.layers.Dense(len(feature_cols))))
+
+model.compile(loss = loss_to_use,
+              optimizer = config['optimizer'],
+              metrics = track_metrics 
+             )
+
+model.summary()
+
+# -
+
+history = model.fit(x=trainX,
+                    y=trainY,
+                    validation_data=(valX, valY), 
+                    epochs = config['epochs'],
+                    batch_size = config['batch_size'],
+                    shuffle=False, 
+                    callbacks=[early_stopping, tensorboard_callback])
+
+
+
+
+
+
+
+
+
+
+# ## Classifier Model
+
+model.summary()
+
+latent_output = model.get_layer('encoder_3').output
+latent_output
+
+len(trainTrack)
+
+trainX.shape
+
+# +
+model_latent = keras.Model(inputs=model.inputs, outputs=latent_output)
+
+# get the feature vector for the input sequence
+next_trainX = model_latent.predict(trainX)
+next_trainY = trainTrack[::window_length]
+
+next_valX = model_latent.predict(valX)
+next_valY = valTrack[::window_length]
+
+next_testX = model_latent.predict(testX)
+next_testY = testTrack[::window_length]
+
+
+print(next_trainX.shape)
+print(next_valX.shape)
+print(next_testX.shape)
+
+# -
+
+next_trainX[123]
+
+trainTrack[123]
+
+# +
+from collections import Counter
+
+train_pairs = [str(x[1])+":"+str(x[2]) for x in trainTrack[::window_length]]
+val_pairs = [str(x[1])+":"+str(x[2]) for x in valTrack[::window_length]]
+test_pairs = [str(x[1])+":"+str(x[2]) for x in testTrack[::window_length]]
+
+train_class_counts = Counter(train_pairs)
+val_class_counts = Counter(val_pairs)
+test_class_counts = Counter(test_pairs)
+
+
+print("Mainly train needs to be larger than the others!")
+print(len(train_class_counts))
+print(len(val_class_counts))
+print(len(test_class_counts))
+
+num_classes = len(train_class_counts)
+
+# -
+
+# ### Create Geo ID Map
+
+# +
+geo_id_map = {}
+#Save 0 for potentially unknown pairs....
+for ind, pair_str in enumerate(train_pairs, 1):
+    if pair_str not in geo_id_map:
+        geo_id_map[pair_str] = ind
+
+id_geo_map= dict((v,k) for k,v in geo_id_map.items())
+
+print(len(geo_id_map))
+print(len(id_geo_map))
+
+# +
+id_train_pairs = np.array([geo_id_map.get(pair_str, 0) for pair_str in train_pairs])
+id_val_pairs = np.array([geo_id_map.get(pair_str, 0) for pair_str in val_pairs])
+id_test_pairs = np.array([geo_id_map.get(pair_str, 0) for pair_str in test_pairs])
+
+id_train_pairs = id_train_pairs.reshape((len(id_train_pairs), 1))
+id_val_pairs = id_val_pairs.reshape((len(id_val_pairs), 1))
+id_test_pairs = id_test_pairs.reshape((len(id_test_pairs), 1))
+
+print(id_train_pairs.shape)
+print(id_val_pairs.shape)
+print(id_test_pairs.shape)
+print()
+
+t_next_trainY = keras.utils.to_categorical(id_train_pairs)
+t_next_valY = keras.utils.to_categorical(id_val_pairs)
+t_next_testY = keras.utils.to_categorical(id_test_pairs)
+
+print(t_next_trainY.shape)
+print(t_next_valY.shape)
+print(t_next_testY.shape)
+
+
+# -
+
+# ### Input + Label for Classifier
+
+print("X")
+print(next_trainX.shape)
+print(next_valX.shape)
+print(next_testX.shape)
+print()
+print("Y")
+print(t_next_trainY.shape)
+print(t_next_valY.shape)
+print(t_next_testY.shape)
+
+# ### DNN Architecture
+
+# +
+dnn_epochs = 50
+dnn_batch_size = 128
+
+print(dnn_epochs)
+print(dnn_batch_size)
+
+# +
+input_dim = next_trainX.shape[1]
+num_classes = t_next_trainY.shape[1]
+
+dnn_model = keras.Sequential()
+dnn_model.add(layers.Dense(128, input_dim=input_dim, activation='relu'))
+dnn_model.add(layers.Dropout(0.05))
+dnn_model.add(layers.Dense(128, activation='relu'))
+dnn_model.add(layers.Dropout(0.05))
+dnn_model.add(layers.Dense(num_classes, activation='softmax'))
+
+dnn_model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
+dnn_history = dnn_model.fit(next_trainX,
+                            t_next_trainY,
+                            epochs=dnn_epochs,
+                            batch_size=dnn_batch_size)
+
+# evaluate the keras model
+_, accuracy = dnn_model.evaluate(next_trainX, t_next_trainY)
+print('Accuracy: %.2f' % (accuracy*100))
+# -
+
+plt.title('Categorical CrossEntropy Loss')
+plt.plot(dnn_history.history['loss'], label='train')
+plt.legend()
+
+
+plt.title('Accuracy')
+plt.plot(dnn_history.history['accuracy'], label='train')
+plt.legend()
+
+
+dnn_model.evaluate(next_valX, t_next_valY)
+
+dnn_model.evaluate(next_testX, t_next_testY)
+
+print("X")
+print(next_trainX.shape)
+print(next_valX.shape)
+print(next_testX.shape)
+print()
+print("Y")
+print(t_next_trainY.shape)
+print(t_next_valY.shape)
+print(t_next_testY.shape)
+
+
+
+
+
+
+
+# +
+X_train_pred = model.predict(trainX2)[:,:,:1]
+trainX_methane = trainX2[:,:,:1]
+
+print('predicted train shape:', X_train_pred.shape)       
+print('original train methane shape:', trainX_methane.shape)
+train_mae_loss = np.mean(np.abs(X_train_pred, trainX_methane), axis=1)
+print('train_mae_loss shape: ', train_mae_loss.shape)
+sns.distplot(train_mae_loss, bins=50, kde=True)
+# -
+
+# # Predict on Validation
+
+# +
+X_val_pred = model.predict(valX2)[:,:,:1]
+valX_methane = valX2[:,:,:1]
+
+print('predicted val shape:', X_val_pred.shape)       
+print('original val methane shape:', valX_methane.shape)
+val_mae_loss = np.mean(np.abs(X_val_pred,  valX_methane), axis=1)
+print('val_mae_loss shape: ', val_mae_loss.shape)
+sns.distplot(val_mae_loss, bins=50, kde=True)
+
+# -
+
+# ### Predict on Test
+#
+
+# +
+X_test_pred = model.predict(testX2)[:,:,:1]
+testX_methane = testX2[:,:,:1]
+
+print('predicted test shape:', X_test_pred.shape)
+print('original test methane shape:', testX_methane.shape)
+test_mae_loss = np.mean(np.abs(X_test_pred, testX_methane), axis=1)
+print('test_mae_loss shape: ', test_mae_loss.shape)
+# sns.distplot(test_mae_loss, bins=50, kde=True)
+
+
+# + endofcell="--"
+### Define Anomaly Threshold
+
+ANOMALY_THRESHOLD = 0.82
+
+# # +
+val_score_df = pd.DataFrame(index=validation[window_length:].index)
+val_score_df['loss'] = val_mae_loss
+val_score_df['threshold'] = ANOMALY_THRESHOLD
+val_score_df['anomaly'] = val_score_df.loss > val_score_df.threshold
+val_score_df['methane_mixing_ratio_bias_corrected_mean'] = validation[window_length:].methane_mixing_ratio_bias_corrected_mean
+val_score_df[lat_str] = validation[window_length:][lat_str]
+val_score_df[lon_str] = validation[window_length:][lon_str]
+val_score_df['reading_count'] = validation[window_length:].reading_count
+val_score_df[dist_away_str] = validation[window_length:][dist_away_str]
+val_score_df['qa_val_mean'] = validation[window_length:].qa_val_mean
+
+
+
+plt.plot(val_score_df.index, val_score_df.loss, label = 'loss')
+plt.plot(val_score_df.index, val_score_df.threshold, label = 'threshold')
+plt.xticks(rotation=25)
+plt.title("Validation Loss vs. Anomaly Loss Threshold")
+plt.legend()
+
+# -
+# --
+
+# + endofcell="--"
+# ### Plot Anomalies
+
+# # +
+val_anomalies = val_score_df[val_score_df.anomaly]
+val_methane_column = mm_scaler.inverse_transform(val_scaled[window_length:])[:,0]
+
+
+plt.title("Valiidation Methane")
+plt.plot(
+    validation[window_length:].index,
+    val_methane_column,
+    label = 'methane_mixing_ratio_bias_corrected_mean'
+)
+
+sns.scatterplot(
+    val_anomalies.index,
+    val_anomalies.methane_mixing_ratio_bias_corrected_mean,
+    color = sns.color_palette()[3],
+    s=60,
+    label='anomaly'
+)
+plt.xticks(rotation=25)
+plt.legend()
+
+# # +
+test_score_df = pd.DataFrame(index=test[window_length:].index)
+test_score_df['loss'] = test_mae_loss
+test_score_df['threshold'] = ANOMALY_THRESHOLD
+test_score_df['anomaly'] = test_score_df.loss > test_score_df.threshold
+test_score_df['methane_mixing_ratio_bias_corrected_mean'] = test[window_length:].methane_mixing_ratio_bias_corrected_mean
+test_score_df[lat_str] = test[window_length:][lat_str]
+test_score_df[lon_str] = test[window_length:][lon_str]
+test_score_df['reading_count'] = test[window_length:].reading_count
+test_score_df[dist_away_str] = test[window_length:][dist_away_str]
+test_score_df['qa_val_mean'] = test[window_length:].qa_val_mean
+
+
+
+plt.plot(test_score_df.index, test_score_df.loss, label = 'loss')
+plt.plot(test_score_df.index, test_score_df.threshold, label = 'threshold')
+plt.xticks(rotation=25)
+plt.title("Test Loss vs. Anomaly Loss Threshold")
+plt.legend()
+
+# -
+# --
+
+# +
+# # +
+test_anomalies = test_score_df[test_score_df.anomaly]
+test_methane_column = mm_scaler.inverse_transform(test_scaled[window_length:])[:,0]
+
+plt.title("Test Methane")
+plt.plot(
+    test[window_length:].index,
+    test_methane_column,
+    label = 'methane_mixing_ratio_bias_corrected_mean'
+)
+
+sns.scatterplot(
+    test_anomalies.index,
+    test_anomalies.methane_mixing_ratio_bias_corrected_mean,
+    color = sns.color_palette()[3],
+    s=60,
+    label='anomaly'
+)
+plt.xticks(rotation=25)
+plt.legend()
+# -
+
+
+
+
+
+
+
+
+
+
+
+
 
 # ## Hyperparameter Tuning
 
@@ -871,6 +1114,8 @@ client.upload_file(Filename=f'/root/methane/models/autoencoder/{dev_name}/{best_
 # plot_model(best_model, to_file = f'./{model_name}/images/model_{}_{}.png', show_shapes=True, show_layer_names=True)
 # -
 
+
+
 # ## Evaluate Best Model On Test Data
 
 best_model = model
@@ -932,3 +1177,59 @@ sns.scatterplot(
 )
 plt.xticks(rotation=25)
 plt.legend()
+# -
+
+
+
+
+
+
+
+
+
+# * Check that predicting 0s on the padding doesn't mess up the loss calcualtion
+#     * look at masking methods here, only use the data thats there 
+
+#
+# Phase 1:
+#
+#     * convert (790, 6) to a 1-D vector (SOME_D = 128) --> (790, 128)
+#         * max, avg pooling some dense layers 
+#         * dense layers to represent lat/lon
+#         * embedding for lat/lon
+#         * distance attention - after computing haversine distance
+#             * potentially get rid of lat/lon, node (790,4)
+#             * 790, 790 will store distance between points.
+#             * https://www.kaggle.com/c/stanford-covid-vaccine/code?competitionId=22111&searchQuery=distance+attention
+#             * https://www.kaggle.com/akashsuper2000/autoencoder-pretrain-gnn-attn-cnn
+#         
+#     * X: (750, 3 , SOME_D), Y:(METHANE)
+#
+# Phase 2:
+#
+# LSTM:
+#
+#     * take out time step if not bi-directional 
+#     * keep the long sequences (all time step info)
+#     * sequence to sequence is possible
+#     
+# Input: (750, 3, 790, 6)
+# Output: 1-shifted right, (750, 3, 790, 6)
+#     * no data leakage without windowing
+
+# ### Questions
+#
+# * is this the best way to represent the time series data?
+# * should it be batched any different by location chunks?
+# * Structure wise I am trying to represent temporal and spatial features, does an embedding layer make sense for the spatial part? Any thoughts here?
+
+# * VAE for image reconstruction, layeres that are de-convolution
+# * Video VAEs also capture time 
+#
+
+# ### Things to Try:
+# * Single or multiple LSTM layers
+
+
+
+
