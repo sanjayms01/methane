@@ -82,6 +82,11 @@ def load_data(region, describe=False):
     df = pd.read_parquet(s3_file_path)
     df['time_utc'] = pd.to_datetime(df['time_utc'])
 
+    print(df.shape, "\n")
+    print(df.dtypes, "\n")
+
+    #Print time range
+    print("start_dt:", df['time_utc'].min(), "\nend_dt:", df['time_utc'].max(), "\nnumber_days:", df['time_utc'].max() - df['time_utc'].min(), "\n")
     df = df.set_index('time_utc')
 
     train_date_threshold = '2021-01-01'
@@ -90,7 +95,6 @@ def load_data(region, describe=False):
     train = df.loc[df.index < train_date_threshold]
     validation = df.loc[(df.index >= train_date_threshold) & (df.index < validation_date_threshold)]
     test = df.loc[df.index >= validation_date_threshold]
-
 
     if describe:
         #Print time range
@@ -101,6 +105,7 @@ def load_data(region, describe=False):
         print(train.shape, validation.shape, test.shape)
         df.head()
     
+
     return df, train, validation, test
 
 
@@ -255,6 +260,7 @@ def calculate_loss(model, trainX, valX):
 
     return train_mse_loss, val_mse_loss, X_train_pred, X_val_pred
 
+
 ####################################################################
 # Functions to plot
 ####################################################################
@@ -265,6 +271,7 @@ def plotting_distplot(train_mse_loss, val_mse_loss):
 #     print("Train MSE loss distribution")
     sns.distplot(train_mse_loss, bins=50, kde=True)
 #     print("Validation MSE loss distribution")
+
     sns.distplot(val_mse_loss, bins=50, kde=True)
     plt.legend(labels=["TrainMSE","ValMSE"])
 
@@ -313,6 +320,7 @@ def model_analysis_plots(region, train_mse_loss, ANOMALY_THRESHOLD, val_score_df
     axs[2].legend(fontsize=titles_font_size)
 
     fig.savefig("./figures/univariate/lstmae_univariate_region{}".format(str(region)))
+
     
 ####################################################################
 # Functions for Anomaly Detection
@@ -326,6 +334,7 @@ def anomaly(train_mse_loss, val_mse_loss, train, validation, test):
 
     val_score_df = pd.DataFrame(index=validation[window_length:].index)
     val_score_df['loss'] = val_mse_loss
+
     val_score_df['threshold'] = ANOMALY_THRESHOLD
     val_score_df['anomaly'] = val_score_df.loss > val_score_df.threshold
     val_score_df['methane_mixing_ratio_bias_corrected_mean'] = validation[window_length:].methane_mixing_ratio_bias_corrected_mean
@@ -633,12 +642,7 @@ for region in regions:
 
 end=time.time()
 print("TIME: {time:.2f} secs".format(time=(end-start)))
+
 # -
-
-
-
-
-
-
 
 
