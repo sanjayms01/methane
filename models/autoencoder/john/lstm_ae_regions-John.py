@@ -85,8 +85,7 @@ def load_data(region, describe=False):
     print(df.shape, "\n")
     print(df.dtypes, "\n")
 
-    #Print time range
-    print("start_dt:", df['time_utc'].min(), "\nend_dt:", df['time_utc'].max(), "\nnumber_days:", df['time_utc'].max() - df['time_utc'].min(), "\n")
+
     df = df.set_index('time_utc')
 
     train_date_threshold = '2021-01-01'
@@ -105,7 +104,6 @@ def load_data(region, describe=False):
         print(train.shape, validation.shape, test.shape)
         df.head()
     
-
     return df, train, validation, test
 
 
@@ -271,7 +269,6 @@ def plotting_distplot(train_mse_loss, val_mse_loss):
 #     print("Train MSE loss distribution")
     sns.distplot(train_mse_loss, bins=50, kde=True)
 #     print("Validation MSE loss distribution")
-
     sns.distplot(val_mse_loss, bins=50, kde=True)
     plt.legend(labels=["TrainMSE","ValMSE"])
 
@@ -385,6 +382,7 @@ end = time.time()
 print("TIME: {time:.2f} secs".format(time=(end-start)))
 
 
+
 # -
 
 # # Multivariate AutoEncoder - Manually Windowed
@@ -396,6 +394,7 @@ print("TIME: {time:.2f} secs".format(time=(end-start)))
 # Function to standard scaler the data
 ####################################################################
 def standardize_data(train, validation, test, feature_cols, describe=False):
+<<<<<<< HEAD
 
     train_input = train[feature_cols]
     val_input = validation[feature_cols]
@@ -639,6 +638,7 @@ for region in regions:
 #         plotting_distplot(train_mse_loss, val_mse_loss, feature)
         val_score_df, val_anomalies, ANOMALY_THRESHOLD = anomaly(train_mse_loss, val_mse_loss, train, validation, test)
         model_analysis_plots(region, train_mse_loss, ANOMALY_THRESHOLD, val_score_df, validation, val_scaled, val_anomalies, mm_scaler, feature, save=True)
+
 
 end=time.time()
 print("TIME: {time:.2f} secs".format(time=(end-start)))
