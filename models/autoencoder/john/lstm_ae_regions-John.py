@@ -75,17 +75,13 @@ alt.data_transformers.disable_max_rows()
 #####################################
 # Function to load data, given region
 #####################################
-def load_data(region):
+def load_data(region, describe=False):
 
     #Read in Data
     s3_file_path = 's3://methane-capstone/data/data-variants-zone/data_{}.parquet.gzip'.format(region)
     df = pd.read_parquet(s3_file_path)
     df['time_utc'] = pd.to_datetime(df['time_utc'])
-    print(df.shape, "\n")
-    print(df.dtypes, "\n")
 
-    #Print time range
-    print("start_dt:", df['time_utc'].min(), "\nend_dt:", df['time_utc'].max(), "\nnumber_days:", df['time_utc'].max() - df['time_utc'].min(), "\n")
     df = df.set_index('time_utc')
 
     train_date_threshold = '2021-01-01'
@@ -94,9 +90,17 @@ def load_data(region):
     train = df.loc[df.index < train_date_threshold]
     validation = df.loc[(df.index >= train_date_threshold) & (df.index < validation_date_threshold)]
     test = df.loc[df.index >= validation_date_threshold]
-    print(train.shape, validation.shape, test.shape)
 
-    df.head()
+
+    if describe:
+        #Print time range
+        print("start_dt:", df['time_utc'].min(), "\nend_dt:", df['time_utc'].max(), "\nnumber_days:", df['time_utc'].max() - df['time_utc'].min(), "\n")
+
+        print(df.shape, "\n")
+        print(df.dtypes, "\n")        
+        print(train.shape, validation.shape, test.shape)
+        df.head()
+    
     return df, train, validation, test
 
 
@@ -104,7 +108,7 @@ def load_data(region):
 # Function to generate trainx, trainy and return number of features 
 # Window Function
 ####################################################################
-def generate_datasets(data, window_size):
+def generate_datasets(data, window_size, describe=False):
     _l = len(data) 
     Xs = []
     Ys = []
@@ -116,7 +120,8 @@ def generate_datasets(data, window_size):
     Xs=np.array(Xs)
     Ys=np.array(Ys)    
     
-    print(Xs.shape, Ys.shape)
+    if describe:
+        print(Xs.shape, Ys.shape)
     
     return  (Xs.shape[2], Xs, Ys)
 
@@ -168,7 +173,7 @@ def generate_datasets(data, window_size):
 ####################################################################
 # Function to standard scaler the data
 ####################################################################
-def standardize_data(train, validation, test, feature_cols):
+def standardize_data(train, validation, test, feature_cols, describe=False):
 
     train_input = train[feature_cols]
     val_input = validation[feature_cols]
@@ -185,9 +190,10 @@ def standardize_data(train, validation, test, feature_cols):
     val_features = val_scaled
     test_features = test_scaled
 
-    print(train_features.shape)
-#     print(val_features.shape)
-#     print(test_features.shape)
+    if describe:
+        print("train:", train_features.shape)
+        print("val:", val_features.shape)
+        print("test:", test_features.shape)
 
     return train_scaled, val_scaled, test_scaled, mm_scaler
 
@@ -195,7 +201,7 @@ def standardize_data(train, validation, test, feature_cols):
 ####################################################################
 # Function to run univariate neural network
 ####################################################################
-def lstm_uni(trainX, trainY):
+def lstm_uni(trainX, trainY, valX, valY, plot=False):
     
     #build model
     model = keras.Sequential()
@@ -234,14 +240,15 @@ def lstm_uni(trainX, trainY):
     X_val_pred = model.predict(valX)
 
     train_mse_loss = np.mean(np.square(X_train_pred- trainX), axis=1)
-    val_mae_loss = np.mean(np.square(X_val_pred- valX), axis=1)
+    val_mse_loss = np.mean(np.square(X_val_pred- valX), axis=1)
     
-    plt.title('MAE Loss')
-    plt.plot(history.history['loss'], label='train')
-    plt.plot(history.history['val_loss'], label='validation')
-    plt.legend()
+    if plot:
+        plt.title('MAE Loss')
+        plt.plot(history.history['loss'], label='train')
+        plt.plot(history.history['val_loss'], label='validation')
+        plt.legend()
 
-    return model, history, X_train_pred, X_val_pred, train_mse_loss, val_mae_loss
+    return model, history, X_train_pred, X_val_pred, train_mse_loss, val_mse_loss
 
 
 
@@ -249,12 +256,12 @@ def lstm_uni(trainX, trainY):
 # Functions to plot
 ####################################################################
 
-def plotting_distplot(train_mse_loss, val_mae_loss):
+def plotting_distplot(train_mse_loss, val_mse_loss):
     
     #MSE LOSS
-    print("Train MSE loss distribution")
+#     print("Train MSE loss distribution")
     sns.distplot(train_mse_loss, bins=50, kde=True)
-    print("Validation MSE loss distribution")
+#     print("Validation MSE loss distribution")
     sns.distplot(val_mse_loss, bins=50, kde=True)
     plt.legend(labels=["TrainMSE","ValMSE"])
 
@@ -308,14 +315,14 @@ def model_analysis_plots(region, train_mse_loss, ANOMALY_THRESHOLD, val_score_df
 # Functions for Anomaly Detection
 ####################################################################
 
-def anomaly(train_mse_loss, val_mae_loss, train, validation, test):
+def anomaly(train_mse_loss, val_mse_loss, train, validation, test):
 
     upper,lower = np.percentile(train_mse_loss,[75,25])
-    # ANOMALY_THRESHOLD = 3*(upper-lower)
-    ANOMALY_THRESHOLD = 0.04
+    ANOMALY_THRESHOLD = 7*(upper-lower)
+#     ANOMALY_THRESHOLD = 0.04
 
     val_score_df = pd.DataFrame(index=validation[window_length:].index)
-    val_score_df['loss'] = val_mae_loss
+    val_score_df['loss'] = val_mse_loss
     val_score_df['threshold'] = ANOMALY_THRESHOLD
     val_score_df['anomaly'] = val_score_df.loss > val_score_df.threshold
     val_score_df['methane_mixing_ratio_bias_corrected_mean'] = validation[window_length:].methane_mixing_ratio_bias_corrected_mean
@@ -328,227 +335,269 @@ def anomaly(train_mse_loss, val_mae_loss, train, validation, test):
 
 # +
 #load data
-region=3
-df, train, validation, test = load_data(region)
+regions = [x for x in range(1,17)]
+# regions = [5]
 
-#parameters:
-feature_cols = ['methane_mixing_ratio_bias_corrected_mean']
-window_length = 7
-batch_size = 32
-num_features = len(feature_cols)
-epochs = 50
+for region in regions:
 
-#standardize data
-train_scaled, val_scaled, test_scaled, mm_scaler = standardize_data(train, validation, test, feature_cols)
+    df, train, validation, test = load_data(region)
 
-#generate trainX and trainY
-num_feats_train, trainX, trainY = generate_datasets(train_scaled, window_length)
-num_feats_val, valX, valY = generate_datasets(val_scaled, window_length)
-num_feats_test, testX, testY = generate_datasets(test_scaled, window_length)
-assert num_feats_train == num_feats_test == num_feats_val
+    #parameters:
+    feature_cols = ['methane_mixing_ratio_bias_corrected_mean']
+    window_length = 7
+    batch_size = 32
+    num_features = len(feature_cols)
+    epochs = 50
 
-#Run LSTM univariate model and plot
-model, history, X_train_pred, X_val_pred, train_mse_loss, val_mse_loss = lstm_uni(trainX, trainY)
+    #standardize data
+    train_scaled, val_scaled, test_scaled, mm_scaler = standardize_data(train, validation, test, feature_cols)
+
+    #generate trainX and trainY
+    num_feats_train, trainX, trainY = generate_datasets(train_scaled, window_length)
+    num_feats_val, valX, valY = generate_datasets(val_scaled, window_length)
+    num_feats_test, testX, testY = generate_datasets(test_scaled, window_length)
+    assert num_feats_train == num_feats_test == num_feats_val
+
+    #Run LSTM univariate model and plot
+    model, history, X_train_pred, X_val_pred, train_mse_loss, val_mse_loss = lstm_uni(trainX, trainY, valX, valY)
+
+    #plot MSE for Train and Validation
+    plotting_distplot(train_mse_loss, val_mse_loss)
+    val_score_df, val_anomalies, ANOMALY_THRESHOLD = anomaly(train_mse_loss, val_mse_loss, train, validation, test)
+    model_analysis_plots(region, train_mse_loss, ANOMALY_THRESHOLD, val_score_df, validation, val_scaled, val_anomalies, mm_scaler)
+
+
 # -
-
-#plot MSE for Train and Validation
-plotting_distplot(train_mse_loss, val_mse_loss)
-val_score_df, val_anomalies, ANOMALY_THRESHOLD = anomaly(train_mse_loss, val_mse_loss, train, validation, test)
-model_analysis_plots(region, train_mse_loss, ANOMALY_THRESHOLD, val_score_df, validation, val_scaled, val_anomalies, mm_scaler)
 
 # # Multivariate AutoEncoder - Manually Windowed
 
-# +
-feature_cols = ['methane_mixing_ratio_bias_corrected_mean','reading_count', 'qa_val_mean',
-                'qa_val_mode',
-               'air_pressure_at_mean_sea_level_mean',
-               'air_temperature_at_2_metres_mean', 'air_temperature_at_2_metres_1hour_Maximum_mean', 'air_temperature_at_2_metres_1hour_Minimum_mean',
-               'dew_point_temperature_at_2_metres_mean',
-               'eastward_wind_at_100_metres_mean', 'eastward_wind_at_10_metres_mean',
-               'integral_wrt_time_of_surface_direct_downwelling_shortwave_flux_in_air_1hour_Accumulation_mean',
-               'lwe_thickness_of_surface_snow_amount_mean',
-               'northward_wind_at_100_metres_mean', 'northward_wind_at_10_metres_mean',
-               'precipitation_amount_1hour_Accumulation_mean', 'snow_density_mean',
-               'surface_air_pressure_mean']
-
-train_input = train[feature_cols]
-val_input = validation[feature_cols]
-test_input = test[feature_cols]
-
-mm_scaler = MinMaxScaler()
-mm_scaler = mm_scaler.fit(train_input)
-
-train_scaled = mm_scaler.transform(train_input)
-val_scaled = mm_scaler.transform(val_input)
-test_scaled = mm_scaler.transform(test_input)
-
-train_features = train_scaled
-val_features = val_scaled
-test_features = test_scaled
-
-print(train_features.shape)
-print(val_features.shape)
-print(test_features.shape)
-
+# ### Functions for Multivariate Model
 
 # +
-window_length = 7
-batch_size = 32
-num_features = len(feature_cols)
-epochs = 50
+####################################################################
+# Function to standard scaler the data
+####################################################################
+def standardize_data(train, validation, test, feature_cols, describe=False):
 
-num_feats_train, trainX, trainY = generate_datasets(train_scaled, window_length)
-num_feats_val, valX, valY = generate_datasets(val_scaled, window_length)
-num_feats_test, testX, testY = generate_datasets(test_scaled, window_length)
+    train_input = train[feature_cols]
+    val_input = validation[feature_cols]
+    test_input = test[feature_cols]
 
-assert num_feats_train == num_feats_test == num_feats_val
+    mm_scaler = MinMaxScaler()
+    mm_scaler = mm_scaler.fit(train_input)
+
+    train_scaled = mm_scaler.transform(train_input)
+    val_scaled = mm_scaler.transform(val_input)
+    test_scaled = mm_scaler.transform(test_input)
+
+    train_features = train_scaled
+    val_features = val_scaled
+    test_features = test_scaled
+
+    if describe:
+        print("train:", train_features.shape)
+        print("val:", val_features.shape)
+        print("test:", test_features.shape)
+
+    return train_scaled, val_scaled, test_scaled, mm_scaler
+
+
+####################################################################
+# Function to run univariate neural network
+####################################################################
+def lstm_multi(trainX, trainY, valX, valY, plot=False):
+    
+    #build model
+    model = keras.Sequential()
+    model.add(keras.layers.LSTM(units=64, input_shape = (window_length, num_features)))
+    model.add(keras.layers.Dropout(rate=0.2))
+    model.add(keras.layers.RepeatVector(n=window_length))
+    model.add(keras.layers.LSTM(units=64, return_sequences=True))
+    model.add(keras.layers.Dropout(rate=0.2))
+    model.add(keras.layers.TimeDistributed(keras.layers.Dense(units=num_features)))
+
+    #compile model
+    model.compile(loss=tf.losses.MeanSquaredError(),
+                  optimizer=tf.optimizers.Adam(),
+                  metrics=[tf.metrics.MeanSquaredError(),tf.losses.MeanAbsoluteError(), tf.metrics.RootMeanSquaredError()]
+                 )
+
+    #defined early stopping when training
+    early_stopping = tf.keras.callbacks.EarlyStopping(
+        monitor='val_loss', min_delta=1e-2, patience=5, verbose=0, mode='auto',
+        baseline=None, restore_best_weights=True)
+
+    #show model summary
+    model.summary()
+
+    #train and fit model
+    history = model.fit(x=trainX,
+                        y=trainY,
+                        validation_data=(valX, valY), 
+                        epochs=epochs,
+                        batch_size=batch_size, 
+                        shuffle=False, 
+                        callbacks=[early_stopping])
+    
+    #Predict model and calculate MSE of the methane feature (first feature)
+    
+    X_train_pred = model.predict(trainX)[:,:,:1]
+    X_val_pred = model.predict(valX)[:,:,:1]
+    
+    trainX_methane = trainX[:,:,:1]
+    valX_methane = valX[:,:,:1]    
+    
+    train_mse_loss = np.mean(np.square(X_train_pred -  trainX_methane), axis=1) 
+    val_mse_loss = np.mean(np.square(X_val_pred -  valX_methane), axis=1)
+
+
+   
+    if plot:
+        plt.title('MAE Loss')
+        plt.plot(history.history['loss'], label='train')
+        plt.plot(history.history['val_loss'], label='validation')
+        plt.legend()
+
+    return model, history, X_train_pred, X_val_pred, train_mse_loss, val_mse_loss
+
+
+
+####################################################################
+# Functions to plot
+####################################################################
+
+def plotting_distplot(train_mse_loss, val_mse_loss, describe=False):
+    
+    #MSE LOSS
+#     print("Train MSE loss distribution")
+    sns.distplot(train_mse_loss, bins=50, kde=True)
+#     print("Validation MSE loss distribution")
+    sns.distplot(val_mse_loss, bins=50, kde=True)
+    plt.legend(labels=["TrainMSE","ValMSE"])
+    
+    if describe:
+        print('predicted train shape:', X_train_pred.shape)       
+        print('original train methane shape:', trainX_methane.shape)
+        print('train_mse_loss shape: ', train_mse_loss.shape)
+        print('predicted val shape:', X_val_pred.shape)       
+        print('original val methane shape:', valX_methane.shape)
+        print('val_mse_loss shape: ', val_mse_loss.shape)
+
+
+def model_analysis_plots(region, train_mse_loss, ANOMALY_THRESHOLD, val_score_df, validation, val_scaled, val_anomalies, mm_scaler):
+    
+    #combined plots
+    fig, axs = plt.subplots(3, 1, figsize=(10,15))  #specify how many sub - plots in figure
+
+    plt. subplots_adjust(hspace=0.5)   #spacing between each subplot
+    titles_font_size = 12
+    ticks_font_size = 8
+    fig.suptitle("LSTM AE Multivariate Model at Region {}".format(region))  #title for entire subplot
+
+    #Training Losses
+    plt.setp(axs[0].get_xticklabels(), fontsize=ticks_font_size, rotation=25)#, horizontalalignment="left")
+    plt.setp(axs[0].get_yticklabels(), fontsize=ticks_font_size)#,  horizontalalignment="left")
+    axs[0].hist(train_mse_loss, bins=50, label='MSE Frequency')
+    axs[0].axvline(ANOMALY_THRESHOLD, color = 'orange', label= 'threshold')
+    axs[0].set_title("Histogram of Training Losses", fontsize=titles_font_size)
+    axs[0].set_xlabel("Mean Squared Error", fontsize = titles_font_size) 
+    axs[0].set_ylabel("Frequency", fontsize = titles_font_size) 
+    axs[0].legend(fontsize=titles_font_size)
+
+
+    #Validation Errors
+    plt.setp(axs[1].get_xticklabels(), fontsize=ticks_font_size, rotation=25)#, horizontalalignment="left")
+    plt.setp(axs[1].get_yticklabels(), fontsize=ticks_font_size)#,  horizontalalignment="left")
+    axs[1].plot(val_score_df.index, val_score_df.loss, label = 'loss')
+    axs[1].plot(val_score_df.index, val_score_df.threshold, label = 'threshold')
+    axs[1].set_title("Validation Loss vs. Anomaly Loss Threshold", fontsize=titles_font_size)
+    axs[1].legend(fontsize=10)
+    axs[1].set_ylabel("Frequency", fontsize = titles_font_size) 
+
+    #Validation Methane
+    plt.setp(axs[2].get_xticklabels(), fontsize=ticks_font_size, rotation=25)#, horizontalalignment="left")
+    plt.setp(axs[2].get_yticklabels(), fontsize=ticks_font_size)#,  horizontalalignment="left")
+    axs[2].set_title("Validation Methane", fontsize=titles_font_size)
+    axs[2].plot(validation[window_length:].index,  mm_scaler.inverse_transform(val_scaled[window_length:])[:,0],  label = 'methane_mixing_ratio_bias_corrected_mean' )
+    axs[2].scatter(
+        val_anomalies.index,
+        val_anomalies.methane_mixing_ratio_bias_corrected_mean,
+        color = sns.color_palette()[3],
+        s=10,
+        label='anomaly')
+    axs[2].legend(fontsize=titles_font_size)
+
+    fig.savefig("lstmae_multivariate_region{}".format(str(region)))
+    
+####################################################################
+# Functions for Anomaly Detection
+####################################################################
+
+def anomaly(train_mse_loss, val_mse_loss, train, validation, test):
+
+    upper,lower = np.percentile(train_mse_loss,[75,25])
+    ANOMALY_THRESHOLD = 5*(upper-lower)
+#     ANOMALY_THRESHOLD = 0.04
+
+    val_score_df = pd.DataFrame(index=validation[window_length:].index)
+    val_score_df['loss'] = val_mse_loss
+    val_score_df['threshold'] = ANOMALY_THRESHOLD
+    val_score_df['anomaly'] = val_score_df.loss > val_score_df.threshold
+    val_score_df['methane_mixing_ratio_bias_corrected_mean'] = validation[window_length:].methane_mixing_ratio_bias_corrected_mean
+    val_score_df['reading_count'] = validation[window_length:].reading_count
+    val_score_df['qa_val_mean'] = validation[window_length:].qa_val_mean
+    val_anomalies = val_score_df[val_score_df.anomaly]
+    
+    return val_score_df, val_anomalies, ANOMALY_THRESHOLD
+
 
 # +
-print(num_feats_train)
-print(trainX.shape)
-print(trainY.shape)
+#load data
+regions = [x for x in range(1,17)]
+# regions = [5]
 
-print(valX.shape)
-print(valY.shape)
+for region in regions:
+    
+    df, train, validation, test = load_data(region)
+    df=df.dropna()
+    train=train.dropna()
+    validation=validation.dropna()
+    test=test.dropna()
 
-print(testX.shape)
-print(testY.shape)
-# +
-epochs = 50
-batch_size = 32
+    #parameters:
+    feature_cols = ['methane_mixing_ratio_bias_corrected_mean','reading_count', 'qa_val_mean',
+                    'qa_val_mode',
+                   'air_pressure_at_mean_sea_level_mean',
+                   'air_temperature_at_2_metres_mean', 'air_temperature_at_2_metres_1hour_Maximum_mean', 'air_temperature_at_2_metres_1hour_Minimum_mean',
+                   'dew_point_temperature_at_2_metres_mean',
+                   'eastward_wind_at_100_metres_mean', 'eastward_wind_at_10_metres_mean',
+                   'integral_wrt_time_of_surface_direct_downwelling_shortwave_flux_in_air_1hour_Accumulation_mean',
+                   'lwe_thickness_of_surface_snow_amount_mean',
+                   'northward_wind_at_100_metres_mean', 'northward_wind_at_10_metres_mean',
+                   'precipitation_amount_1hour_Accumulation_mean', 'snow_density_mean',
+                   'surface_air_pressure_mean']
 
-early_stopping = tf.keras.callbacks.EarlyStopping(
-    monitor='val_loss', min_delta=1e-2, patience=5, verbose=0, mode='auto',
-    baseline=None, restore_best_weights=True)
+    window_length = 7
+    batch_size = 32
+    num_features = len(feature_cols)
+    epochs = 50
 
-model = keras.Sequential()
+    #standardize data
+    train_scaled, val_scaled, test_scaled, mm_scaler = standardize_data(train, validation, test, feature_cols)
 
-model.add(keras.layers.LSTM(units=64, input_shape = (window_length, num_features)))
-model.add(keras.layers.Dropout(rate=0.2))
-model.add(keras.layers.RepeatVector(n=window_length))
-model.add(keras.layers.LSTM(units=64, return_sequences=True))
-model.add(keras.layers.Dropout(rate=0.2))
-model.add(keras.layers.TimeDistributed(keras.layers.Dense(units=num_features)))
+    #generate trainX and trainY
+    num_feats_train, trainX, trainY = generate_datasets(train_scaled, window_length)
+    num_feats_val, valX, valY = generate_datasets(val_scaled, window_length)
+    num_feats_test, testX, testY = generate_datasets(test_scaled, window_length)
+    assert num_feats_train == num_feats_test == num_feats_val
 
-model.compile(loss=tf.losses.MeanSquaredError(),
-              optimizer=tf.optimizers.Adam(),
-              metrics=[tf.metrics.MeanSquaredError(),tf.losses.MeanAbsoluteError(), tf.metrics.RootMeanSquaredError()]
-             )
+    #Run LSTM univariate model and plot
+    model, history, X_train_pred, X_val_pred, train_mse_loss, val_mse_loss = lstm_multi(trainX, trainY, valX, valY)
 
-model.build()
-print(model.summary())
-# -
-
-history = model.fit(x=trainX,
-                    y=trainY,
-                    validation_data=(valX, valY), 
-                    epochs=epochs,
-                    batch_size=batch_size, 
-                    shuffle=False, 
-                    callbacks=[early_stopping])
-
-
-plt.title('mae Loss')
-plt.plot(history.history['loss'], label='train')
-plt.plot(history.history['val_loss'], label='validation')
-plt.legend()
-
-# ### Select back just the methane, and maybe others but weight it for the loss calculation
-
-# +
-# trainX[:,:,0]  #this would get you methane only, rolling windows of 7 
-
-# +
-# model.predict(trainX)[:,:,0]    #this would get you methane only, rolling windows of 7 
-# -
-
-# ### Predict on Train & Validation & Test
-#
-#     * We must extract the methane part out of this outcome!!
-
-# +
-#MSE LOSS 
-X_train_pred = model.predict(trainX)[:,:,:1]
-trainX_methane = trainX[:,:,:1]
-
-print('predicted train shape:', X_train_pred.shape)       
-print('original train methane shape:', trainX_methane.shape)
-train_mse_loss = np.mean(np.square(X_train_pred -  trainX_methane), axis=1)
-print('train_mse_loss shape: ', train_mse_loss.shape)
-sns.distplot(train_mse_loss, bins=50, kde=True)
-
-# +
-#MSE LOSS 
-X_val_pred = model.predict(valX)[:,:,:1]
-valX_methane = valX[:,:,:1]
-
-print('predicted val shape:', X_val_pred.shape)       
-print('original val methane shape:', valX_methane.shape)
-val_mse_loss = np.mean(np.square(X_val_pred -  valX_methane), axis=1)
-print('val_mse_loss shape: ', val_mse_loss.shape)
-sns.distplot(val_mse_loss, bins=50, kde=True)
-# -
-
-# ### Define Anomaly Threshold
-
-upper,lower = np.percentile(train_mse_loss,[75,25])
-# ANOMALY_THRESHOLD = 3*(upper-lower)
-ANOMALY_THRESHOLD = 0.06
-ANOMALY_THRESHOLD
-
-val_score_df = pd.DataFrame(index=validation[window_length:].index)
-val_score_df['loss'] = val_mae_loss
-val_score_df['threshold'] = ANOMALY_THRESHOLD
-val_score_df['anomaly'] = val_score_df.loss > val_score_df.threshold
-val_score_df['methane_mixing_ratio_bias_corrected_mean'] = validation[window_length:].methane_mixing_ratio_bias_corrected_mean
-val_score_df['reading_count'] = validation[window_length:].reading_count
-val_score_df['qa_val_mean'] = validation[window_length:].qa_val_mean
-val_anomalies = val_score_df[val_score_df.anomaly]
-val_methane_column = mm_scaler.inverse_transform(val_scaled[window_length:])[:,0]
-
-# ### Plot Anomalies
-
-# +
-#combined plots
-fig, axs = plt.subplots(3, 1, figsize=(10,15))  #specify how many sub - plots in figure
-
-plt. subplots_adjust(hspace=0.5)   #spacing between each subplot
-titles_font_size = 12
-ticks_font_size = 8
-fig.suptitle("LSTM AE Multivariate Model at Region {}".format(region))  #title for entire subplot
-
-#Training Losses  
-plt.setp(axs[0].get_xticklabels(), fontsize=ticks_font_size, rotation=25) 
-plt.setp(axs[0].get_yticklabels(), fontsize=ticks_font_size) 
-axs[0].hist(train_mse_loss, bins=50, label='MSE Frequency')
-axs[0].axvline(ANOMALY_THRESHOLD, color = 'orange', label= 'threshold')
-axs[0].set_title("Histogram of Training Losses", fontsize=titles_font_size)
-axs[0].set_xlabel("Mean Squared Error", fontsize = titles_font_size) 
-axs[0].set_ylabel("Frequency", fontsize = titles_font_size) 
-axs[0].legend(fontsize=titles_font_size)
-
-#Validation Errors
-plt.setp(axs[1].get_xticklabels(), fontsize=ticks_font_size, rotation=25)
-plt.setp(axs[1].get_yticklabels(), fontsize=ticks_font_size)
-axs[1].plot(val_score_df.index, val_score_df.loss, label = 'loss')
-axs[1].plot(val_score_df.index, val_score_df.threshold, label = 'threshold')
-axs[1].set_title("Validation Loss vs. Anomaly Loss Threshold", fontsize=titles_font_size)
-axs[1].legend(fontsize=10)
-
-#Validation Methane
-plt.setp(axs[2].get_xticklabels(), fontsize=ticks_font_size, rotation=25)
-plt.setp(axs[2].get_yticklabels(), fontsize=ticks_font_size)
-axs[2].set_title("Validation Methane", fontsize=titles_font_size)
-axs[2].plot(validation[window_length:].index.to_pydatetime(), val_methane_column,  label = 'methane_mixing_ratio_bias_corrected_mean' )
-axs[2].scatter(
-    val_anomalies.index,
-    val_anomalies.methane_mixing_ratio_bias_corrected_mean,
-    color = sns.color_palette()[3],
-    s=10,
-    label='anomaly')
-axs[2].legend(fontsize=titles_font_size)
-
-fig.savefig("lstmae_multivariate_region{}".format(str(region)))
+    #plot MSE for Train and Validation
+    plotting_distplot(train_mse_loss, val_mse_loss)
+    val_score_df, val_anomalies, ANOMALY_THRESHOLD = anomaly(train_mse_loss, val_mse_loss, train, validation, test)
+    model_analysis_plots(region, train_mse_loss, ANOMALY_THRESHOLD, val_score_df, validation, val_scaled, val_anomalies, mm_scaler)
 # -
 
 
