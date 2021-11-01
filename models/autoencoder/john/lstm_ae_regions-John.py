@@ -258,7 +258,6 @@ def calculate_loss(model, trainX, valX):
 
     return train_mse_loss, val_mse_loss, X_train_pred, X_val_pred
 
-
 ####################################################################
 # Functions to plot
 ####################################################################
@@ -382,7 +381,6 @@ end = time.time()
 print("TIME: {time:.2f} secs".format(time=(end-start)))
 
 
-
 # -
 
 # # Multivariate AutoEncoder - Manually Windowed
@@ -394,7 +392,6 @@ print("TIME: {time:.2f} secs".format(time=(end-start)))
 # Function to standard scaler the data
 ####################################################################
 def standardize_data(train, validation, test, feature_cols, describe=False):
-<<<<<<< HEAD
 
     train_input = train[feature_cols]
     val_input = validation[feature_cols]
@@ -642,7 +639,12 @@ for region in regions:
 
 end=time.time()
 print("TIME: {time:.2f} secs".format(time=(end-start)))
-
 # -
+
+
+
+
+
+
 
 
