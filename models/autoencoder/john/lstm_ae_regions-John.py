@@ -237,7 +237,7 @@ def lstm_uni(trainX, trainY, valX, valY, plot=False):
                         batch_size=batch_size, 
                         shuffle=False, 
                         callbacks=[early_stopping])
-       
+
     if plot:
         plt.title('MAE Loss')
         plt.plot(history.history['loss'], label='train')
@@ -257,6 +257,7 @@ def calculate_loss(model, trainX, valX):
     val_mse_loss = np.mean(np.square(X_val_pred- valX), axis=1)    
 
     return train_mse_loss, val_mse_loss, X_train_pred, X_val_pred
+
 
 ####################################################################
 # Functions to plot
@@ -380,7 +381,6 @@ for region in regions:
 end = time.time()
 print("TIME: {time:.2f} secs".format(time=(end-start)))
 
-
 # -
 
 # # Multivariate AutoEncoder - Manually Windowed
@@ -452,7 +452,7 @@ def lstm_multi(trainX, trainY, valX, valY, plot=False):
                         batch_size=batch_size, 
                         shuffle=False, 
                         callbacks=[early_stopping])
-      
+
     if plot:
         plt.title('MAE Loss')
         plt.plot(history.history['loss'], label='train')
@@ -475,6 +475,7 @@ def calculate_loss(feature, model, trainX, valX):
     val_mse_loss = np.mean(np.square(X_val_pred -  valX_methane), axis=1)
     
     return train_mse_loss, val_mse_loss, X_train_pred, X_val_pred
+
 
 ####################################################################
 # Functions to plot
@@ -501,7 +502,7 @@ def plotting_distplot(train_mse_loss, val_mse_loss, feature, describe=False):
 
 def model_analysis_plots(region, train_mse_loss, ANOMALY_THRESHOLD, val_score_df,
                          validation, val_scaled, val_anomalies, mm_scaler, feature, save=False):
-    
+
     #combined plots
     fig, axs = plt.subplots(3, 1, figsize=(10,15))  #specify how many sub - plots in figure
 
@@ -509,6 +510,7 @@ def model_analysis_plots(region, train_mse_loss, ANOMALY_THRESHOLD, val_score_df
     titles_font_size = 12
     ticks_font_size = 8
     fig.suptitle("LSTM AE Multivariate Model at Region {}, Feature {}".format(region, feature))  #title for entire subplot
+
 
     #Training Losses
     plt.setp(axs[0].get_xticklabels(), fontsize=ticks_font_size, rotation=25)#, horizontalalignment="left")
@@ -549,6 +551,7 @@ def model_analysis_plots(region, train_mse_loss, ANOMALY_THRESHOLD, val_score_df
         fig.savefig("./figures/multivariate/lstmae_multivariate_region{}_feature{}".format(str(region), feature))
     
 #     fig.clear(True)
+
     
 ####################################################################
 # Functions for Anomaly Detection
@@ -605,24 +608,18 @@ for region in regions:
     
     df, train, validation, test = load_data(region)
     df=df.dropna()                    #NEED TO DROP ROWS WITH NA VALUES :(
+#load data
+regions = [x for x in range(1,17)]
+# regions = [5]
+
+for region in regions:
+    
+    df, train, validation, test = load_data(region)
+    df=df.dropna()
     train=train.dropna()
     validation=validation.dropna()
     test=test.dropna()
 
-    window_length = 7
-    batch_size = 32
-    num_features = len(feature_cols)
-    epochs = 50
-
-    #standardize data
-    train_scaled, val_scaled, test_scaled, mm_scaler = standardize_data(train, validation, test, feature_cols)
-
-    #generate trainX and trainY
-    num_feats_train, trainX, trainY = generate_datasets(train_scaled, window_length)
-    num_feats_val, valX, valY = generate_datasets(val_scaled, window_length)
-    num_feats_test, testX, testY = generate_datasets(test_scaled, window_length)
-    assert num_feats_train == num_feats_test == num_feats_val
-    
     #Run LSTM univariate model and plot
     model, history = lstm_multi(trainX, trainY, valX, valY)
 
@@ -639,12 +636,7 @@ for region in regions:
 
 end=time.time()
 print("TIME: {time:.2f} secs".format(time=(end-start)))
+
 # -
-
-
-
-
-
-
 
 
