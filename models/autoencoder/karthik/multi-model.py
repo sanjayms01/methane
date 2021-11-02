@@ -484,9 +484,9 @@ with open('zone_artifacts_20211101/df_tracker.pickle', 'rb') as handle:
 # plot MSE for Train and Validation
 
 zone = 5
-feat = 'methane_mixing_ratio_bias_corrected_mean'
-train_mse_loss = feature_loss_tracker[zone]['train']['methane_mixing_ratio_bias_corrected_mean']['train_mse_loss']
-val_mse_loss = feature_loss_tracker[zone]['val']['methane_mixing_ratio_bias_corrected_mean']['val_mse_loss']
+feature = 'methane_mixing_ratio_bias_corrected_mean'
+train_mse_loss = feature_loss_tracker[zone]['train'][feature]['train_mse_loss']
+val_mse_loss = feature_loss_tracker[zone]['val'][feature]['val_mse_loss']
 train_zone = df_tracker[zone]['train_zone']
 val_zone = df_tracker[zone]['val_zone']
 val_scaled = df_tracker[zone]['val_scaled']
@@ -495,7 +495,7 @@ scaler = df_tracker[zone]['scaler']
 
 plotting_distplot(train_mse_loss,
                   val_mse_loss,
-                  feat
+                  feature
                  )
 # -
 
@@ -515,6 +515,6 @@ model_analysis_plots(zone,
                      val_scaled, 
                      val_anomalies,
                      scaler,
-                     feat,
+                     feature,
                      save=False)
 
