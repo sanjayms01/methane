@@ -21,6 +21,7 @@ from matplotlib.collections import PatchCollection
 import altair as alt
 
 
+import os
 import glob
 import time
 import sklearn
@@ -80,14 +81,11 @@ def load_all_zone_data(describe=True):
     validation = df.loc[(df.index >= train_date_threshold) & (df.index < validation_date_threshold)]
     test = df.loc[df.index >= validation_date_threshold]
 
-    if describe:
-        #Print time range
-        print("start_dt:", df.index.min(), "\nend_dt:", df.index.max(), "\nnumber_days:", df.index.max() - df.index.min(), "\n")
-
-        print(df.shape, "\n")
-        print(df.dtypes, "\n")        
-        print(train.shape, validation.shape, test.shape)
-        df.head()
+    #Print time range
+    print("start_dt:", df.index.min(), "\nend_dt:", df.index.max(), "\nnumber_days:", df.index.max() - df.index.min(), "\n")
+    print(df.shape, "\n")
+    print(df.dtypes, "\n")
+    print(train.shape, validation.shape, test.shape)
     
     return df, train, validation, test
 
@@ -111,16 +109,19 @@ def generate_datasets(data, window_size, describe=False):
     if describe:
         print(Xs.shape, Ys.shape)
     
-    return  (Xs.shape[2], Xs, Ys)
+    return (Xs.shape[2], Xs, Ys)
 # -
 
 # ### Load Data
 
 
 
-df, train, val, test = load_all_zone_data()
 
 
+# ### Data 
+#     * Standardize
+#     * Training
+#     * Loss Calculation
 
 # +
 ####################################################################
@@ -168,13 +169,22 @@ def lstm_multi(trainX, trainY, valX, valY, window_length, num_features, batch_si
     #compile model
     model.compile(loss=tf.losses.MeanSquaredError(),
                   optimizer=tf.optimizers.Adam(),
-                  metrics=[tf.metrics.MeanSquaredError(),tf.losses.MeanAbsoluteError(), tf.metrics.RootMeanSquaredError()]
+                  metrics=[tf.metrics.MeanSquaredError(),
+                           tf.losses.MeanAbsoluteError(),
+                           tf.metrics.RootMeanSquaredError()
+                          ]
                  )
 
     #defined early stopping when training
     early_stopping = tf.keras.callbacks.EarlyStopping(
-        monitor='val_loss', min_delta=1e-2, patience=5, verbose=0, mode='auto',
-        baseline=None, restore_best_weights=True)
+                            monitor='val_loss',
+                            min_delta=1e-2,
+                            patience=5,
+                            verbose=0,
+                            mode='auto',
+                            baseline=None, 
+                            restore_best_weights=True
+                        )
 
     #show model summary
     #model.summary()
@@ -182,7 +192,7 @@ def lstm_multi(trainX, trainY, valX, valY, window_length, num_features, batch_si
     #train and fit model
     history = model.fit(x=trainX,
                         y=trainY,
-                        validation_data=(valX, valY), 
+                        validation_data=(valX, valY),
                         epochs=epochs,
                         batch_size=batch_size, 
                         shuffle=False, 
@@ -200,11 +210,19 @@ def lstm_multi(trainX, trainY, valX, valY, window_length, num_features, batch_si
 def calculate_loss(feature_num, model, dataX):
 
     #Predict model and calculate MSE of the feature (0th feature = methane)    
-    pred = model.predict(dataX)[:,:,feature_num]    
-    truth = dataX[:,:,feature_num]
+    pred = model.predict(dataX)[:, :, feature_num]
+    truth = dataX[:, :, feature_num]
 
     mse_loss = np.mean(np.square(pred -  truth), axis=1)     
     return mse_loss, pred 
+
+
+
+# -
+
+# ### MATPLOTLIB - Plot Functions
+
+# +
 
 ####################################################################
 # Functions to plot
@@ -261,7 +279,7 @@ def model_analysis_plots(region, train_mse_loss, ANOMALY_THRESHOLD, val_score_df
     axs[1].set_ylabel("Frequency", fontsize = titles_font_size) 
 
     #Validation Methane
-    feature_num = feature_number[feature]
+    feature_num = feature_number_map[feature]
     plt.setp(axs[2].get_xticklabels(), fontsize=ticks_font_size, rotation=25)#, horizontalalignment="left")
     plt.setp(axs[2].get_yticklabels(), fontsize=ticks_font_size)#,  horizontalalignment="left")
     axs[2].set_title("Validation Methane", fontsize=titles_font_size)
@@ -275,7 +293,7 @@ def model_analysis_plots(region, train_mse_loss, ANOMALY_THRESHOLD, val_score_df
     axs[2].legend(fontsize=titles_font_size)
 
     if save:
-        feature_num = feature_number[feature]
+        feature_num = feature_number_map[feature]
         fig.savefig("./figures/multivariate/lstmae_multivariate_region{}_feature{}".format(str(region), feature))
     
 #     fig.clear(True)
@@ -306,9 +324,15 @@ def anomaly(train_mse_loss, other_mse_loss, train, other_data):
 
 # -
 
+# ### Load Data
+
+df, train, val, test = load_all_zone_data()
+
+
+
 # ### Track Everything
 
-# + jupyter={"outputs_hidden": true}
+# +
 #select region and features
 zones = [x for x in range(1,17)]
 
@@ -316,11 +340,10 @@ zones = [x for x in range(1,17)]
 feature_loss_tracker = {key: {'train':{}, 'val':{}, 'test':{}} for key in zones}
 
 #Track all the data frames, raw and scaled
-df_tracker = {key: {} for key in zones}
-
+df_tracker = {}
 
 #Track all the metrics from each model training cycle
-model_metrics_tracker = {key: {} for key in zones}
+model_metrics_tracker = {}
 
 drop = False
 
@@ -336,16 +359,20 @@ feature_cols = ['methane_mixing_ratio_bias_corrected_mean','reading_count', 'qa_
                'precipitation_amount_1hour_Accumulation_mean', 'snow_density_mean',
                'surface_air_pressure_mean']
 
-feature_number = dict()
+feature_number_map = {}
 for ind, feature in enumerate(feature_cols, 0):
-    feature_number[feature] = ind
+    feature_number_map[feature] = ind
 
 start=time.time()
     
 for zone in zones:
     
     print("Zone #", zone)
-    train_zone, val_zone, test_zone = train[train['BZone'] == zone],  val[val['BZone'] == zone],  test[test['BZone'] == zone]
+    train_zone = train[train['BZone'] == zone]
+    val_zone = val[val['BZone'] == zone]
+    test_zone = test[test['BZone'] == zone] 
+
+    
     
     if drop:
         #NEED TO DROP ROWS WITH NA VALUES :(
@@ -356,9 +383,8 @@ for zone in zones:
     else:
 
         train_zone=train_zone.interpolate(method='time')
-        val_zone=train_zone.interpolate(method='time')
+        val_zone=val_zone.interpolate(method='time')
         test_zone=test_zone.interpolate(method='time')
-
     
     window_length = 7
     batch_size = 32
@@ -379,8 +405,6 @@ for zone in zones:
                         'test_scaled': test_scaled,
                         'scaler': scaler
                        }
-    
-    
 
     print("Generating Datasets")
     #generate trainX and trainY
@@ -396,11 +420,10 @@ for zone in zones:
 
     model_metrics_tracker[zone] = history.history
 
-    
     for feature in feature_cols:
 
         #Predict MSE's:
-        feature_num = feature_number[feature]
+        feature_num = feature_number_map[feature]
         print("Loss: ", feature, feature_num)
         
         train_mse_loss, X_train_pred = calculate_loss(feature_num, model, trainX)
@@ -408,7 +431,7 @@ for zone in zones:
         test_mse_loss, X_test_pred = calculate_loss(feature_num, model, testX)
         
         feature_loss_tracker[zone]['train'].update({feature: {'train_mse_loss': train_mse_loss, 'X_train_pred':X_train_pred }})
-        feature_loss_tracker[zone]['val'].update({feature: {'val_mse_loss': val_mse_loss, 'X_val_pred':X_val_pred }})
+        feature_loss_tracker[zone]['val'].update({feature: {'val_mse_loss': val_mse_loss, 'X_val_pred': X_val_pred }})
         feature_loss_tracker[zone]['test'].update({feature: {'test_mse_loss': test_mse_loss, 'X_test_pred':X_test_pred }})
 
     print()
@@ -435,86 +458,365 @@ print("TIME: {time:.2f} secs".format(time=(end-start)))
 import boto3
 import pickle
 
-
-# #Connect to S3 default profile
+#Connect to S3 default profile
 s3 = boto3.client('s3')
-
-# serializedMyData = pickle.dumps(myDictionary)
-
-# s3.put_object(Bucket='mytestbucket',Key='myDictionary').put(Body=serializedMyData)
 # -
 
 # ### Write out to Pickle Files
 
+## FIRST YOU NEED TO MAKE THIS FOLDER
+f'zone_artifacts_{today_dt}'
+
 # +
+#### Dictionaries ####
+
+today_dt = datetime.today().strftime('%Y%m%d')
 # feature_loss_tracker
 # df_tracker
 # model_metrics_tracker
 
-
-# with open('zone_artifacts_20211101/feature_loss_tracker.pickle', 'wb') as handle:
-#     pickle.dump(feature_loss_tracker, handle, protocol=pickle.HIGHEST_PROTOCOL)
+with open(f'zone_artifacts_{today_dt}/feature_loss_tracker.pickle', 'wb') as handle:
+    pickle.dump(feature_loss_tracker, handle, protocol=pickle.HIGHEST_PROTOCOL)
     
-# with open('zone_artifacts_20211101/df_tracker.pickle', 'wb') as handle:
-#     pickle.dump(df_tracker, handle, protocol=pickle.HIGHEST_PROTOCOL)
+with open(f'zone_artifacts_{today_dt}/df_tracker.pickle', 'wb') as handle:
+    pickle.dump(df_tracker, handle, protocol=pickle.HIGHEST_PROTOCOL)
     
-# with open('zone_artifacts_20211101/model_metrics_tracker.pickle', 'wb') as handle:
-#     pickle.dump(model_metrics_tracker, handle, protocol=pickle.HIGHEST_PROTOCOL)
+with open(f'zone_artifacts_{today_dt}/model_metrics_tracker.pickle', 'wb') as handle:
+    pickle.dump(model_metrics_tracker, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
 
-
-## LOAD PICKLE FILE
-with open('zone_artifacts_20211101/df_tracker.pickle', 'rb') as handle:
-    b = pickle.load(handle)
+##LOAD PICKLE FILE
+# with open(f'zone_artifacts_{today_dt}/df_tracker.pickle', 'rb') as handle:
+#     b = pickle.load(handle)
 
 # print a == b
 # -
 
 # ### Put on S3
 
+# +
 # import subprocess
 # subprocess.check_output(['aws','s3','cp', '--recursive', 'zone_artifacts_20211101' , 's3://methane-capstone/models/autoencoder/zone_model_artifacts/'])
-
-
-
-
-# ### Use Dictionaries for Analysis
-
-# +
-# plot MSE for Train and Validation
-
-zone = 5
-feature = 'methane_mixing_ratio_bias_corrected_mean'
-train_mse_loss = feature_loss_tracker[zone]['train'][feature]['train_mse_loss']
-val_mse_loss = feature_loss_tracker[zone]['val'][feature]['val_mse_loss']
-train_zone = df_tracker[zone]['train_zone']
-val_zone = df_tracker[zone]['val_zone']
-val_scaled = df_tracker[zone]['val_scaled']
-scaler = df_tracker[zone]['scaler']
-
-
-plotting_distplot(train_mse_loss,
-                  val_mse_loss,
-                  feature
-                 )
 # -
 
 
 
+# ### Analysis - MATPLOTLIB
+#
+
+# +
+# # plot MSE for Train and Validation
+
+# zone = 5
+# feature = 'methane_mixing_ratio_bias_corrected_mean'
+# train_mse_loss = feature_loss_tracker[zone]['train'][feature]['train_mse_loss']
+# val_mse_loss = feature_loss_tracker[zone]['val'][feature]['val_mse_loss']
+# train_zone = df_tracker[zone]['train_zone']
+# val_zone = df_tracker[zone]['val_zone']
+# val_scaled = df_tracker[zone]['val_scaled']
+# scaler = df_tracker[zone]['scaler']
+
+
+# plotting_distplot(train_mse_loss,
+#                   val_mse_loss,
+#                   feature
+#                  )
+# -
+
 # ### Look at Anomalies
 
-val_score_df, val_anomalies, ANOMALY_THRESHOLD = anomaly(train_mse_loss, val_mse_loss, train_zone, val_zone)
+# +
+
+# val_score_df, val_anomalies, ANOMALY_THRESHOLD = anomaly(train_mse_loss, val_mse_loss, train_zone, val_zone)
 
 # ### Plot Analysis Plots
+# model_analysis_plots(zone, 
+#                      train_mse_loss,
+#                      ANOMALY_THRESHOLD,
+#                      val_score_df, 
+#                      val_zone,
+#                      val_scaled, 
+#                      val_anomalies,
+#                      scaler,
+#                      feature,
+#                      save=False)
+# -
 
-model_analysis_plots(zone, 
-                     train_mse_loss,
-                     ANOMALY_THRESHOLD,
-                     val_score_df, 
-                     val_zone,
-                     val_scaled, 
-                     val_anomalies,
-                     scaler,
-                     feature,
-                     save=False)
+
+
+
+
+# ### Analysis - ALTAIR
+
+# +
+def get_anomaly_threshold(mse_loss):
+    upper,lower = np.percentile(mse_loss,[75,25])
+    ANOMALY_THRESHOLD = 5*(upper-lower)
+    return ANOMALY_THRESHOLD
+
+
+def apply_threshol(anom_thresh, data_frame, mse_loss):
+
+    scored_df = pd.DataFrame(index=data_frame[window_length:].index)
+    scored_df['loss'] = mse_loss
+    scored_df['threshold'] = anom_thresh
+    scored_df['anomaly'] = scored_df.loss > scored_df.threshold
+    
+    for feature in feature_cols:
+        scored_df[feature] = data_frame[window_length:][feature]
+        
+    return scored_df
+
+
+
+# -
+
+zones
+
+feature_cols
+
+# ### Build Final Data Frames For Visuals
+
+# +
+# plot MSE for Train and Validation
+final_dataframes = {key: {'train':None, 'val': None, 'test': None} for key in zones}
+
+for zone in zones:
+    for split in ['train', 'val', 'test']:
+            
+        cur_zone_df = df_tracker[zone][f'{split}_zone']
+        scored_df = pd.DataFrame(index=cur_zone_df[window_length:].index)
+    
+        for feature in feature_cols:
+            
+            ### WE MIGHT HAVE TO FIGURE OUT THE COLOR BUCKETS HERE ###
+            
+            train_mse_loss = feature_loss_tracker[zone]['train'][feature][f'train_mse_loss']
+            mse_loss = feature_loss_tracker[zone][split][feature][f'{split}_mse_loss']
+            
+            anom_thresh = get_anomaly_threshold(train_mse_loss)
+
+            
+            scored_df[feature] = cur_zone_df[window_length:][feature]
+            scored_df[f'{feature}_loss'] = mse_loss
+            scored_df[f'{feature}_threshold'] = anom_thresh
+            scored_df[f'{feature}_anomaly'] = scored_df[f'{feature}_loss'] > scored_df[f'{feature}_threshold']
+
+        final_dataframes[zone][split] = scored_df
+        
+
+# -
+
+# ### Sample check the data
+
+# +
+print(final_dataframes[1]['train'].shape)
+print(final_dataframes[1]['val'].shape)
+print(final_dataframes[1]['test'].shape)
+print()
+
+print(final_dataframes[2]['train'].shape)
+print(final_dataframes[2]['val'].shape)
+print(final_dataframes[2]['test'].shape)
+print()
+# -
+
+
+
+# ## Our Colors
+
+# +
+#Methane
+ven_red = '#C91414'
+cad_ed ='#E3071D'
+amber ='#FF7E01'
+flu_orange ='#FFBE00'
+bud_green ='#75AD6F'
+dark_green ='#1D7044'
+
+
+#Weather + etc.
+carrot_orange ='#DD8420'
+gold_yellow ='#DFA829'
+bone = '#DAD5C7'
+wel_blue= '#769DB2'
+steel_blue ='#497FA8'
+dazzle_blue = '#2E5791'
+
+
+# -
+
+# ## Loss Over Time
+
+def plot_multi_loss(zone, split, feat_sub_cols):
+
+    '''
+    zone = 1-16
+    split = ['train', 'val']
+    feat_sub_cols = [<LIST OF FEATURES>]
+    '''
+    
+    #Data
+    df_viz = final_dataframes[zone][split]
+    
+    #Get all columns requested for analysis
+    sub_cols = []
+    for feat_col in feat_sub_cols:
+        for col in df_viz.columns:
+            if feat_col in col:
+                sub_cols.append(col)    
+    df_viz = df_viz[sub_cols].reset_index()
+    
+    
+    #Create Concatenated Charts
+    chart = alt.vconcat(data=df_viz)
+    row = alt.hconcat()
+    split_row = 1
+    
+    for i in range(1, len(feat_sub_cols)+1):
+        
+        #Flag to include timestamp ticks
+        show_ts = False #i == len(feat_sub_cols)
+        
+        #Features
+        feature = feat_sub_cols[i-1]
+        feat_loss_col = feature+'_loss'
+        feat_anom_col = feature+'_anomaly'
+        feat_thresh_col = feature+'_threshold'
+    
+        #Loss Points
+        points = alt.Chart(df_viz).mark_circle(size=50, tooltip=True).encode(
+            x = alt.X('time_utc:O', axis=alt.Axis(labels=show_ts)),
+            y= alt.Y(f'{feat_loss_col}:Q'),    
+            color=alt.Color(f'{feat_anom_col}:N', title='Anomaly',
+                               scale=alt.Scale(domain=[False, True],
+                                range=[dark_green, ven_red]))
+        )
+
+        #Loss Line
+        line = alt.Chart(df_viz).mark_line(color='lightgrey').encode(
+            x = alt.X('time_utc:O', axis=alt.Axis(labels=show_ts)),
+            y = alt.Y(f'{feat_loss_col}:Q', title=feat_loss_col)
+        )
+
+        #Anom Thresh
+        rule = alt.Chart(df_viz).mark_rule(color=flu_orange, strokeDash=[10], tooltip =True).encode(
+                y=alt.Y(f'{feat_thresh_col}:Q'),
+                size=alt.value(2)
+        )
+
+        row |=  (points + line + rule).properties(width = 1100, height=200)
+
+        if i % split_row == 0:
+            chart &= row
+            row = alt.hconcat()
+        
+    return chart.properties(title=f"Zone #{zone} Loss").configure_title(
+                                                            fontSize=20,
+                                                            font='Courier',
+                                                            anchor='middle',
+                                                            color='gray',
+                                                        )
+
+
+
+
+# ### Plot Loss by Zone
+
+cols = ['methane_mixing_ratio_bias_corrected_mean','reading_count','qa_val_mean']
+plot_multi_loss(1, 'test', cols)
+
+
+
+# ### Plot Features by Zone
+
+def plot_multi_time_series(zone, split, feat_sub_cols, time_agg='', agg=''):
+
+    #Either both `aggs` or no `agg`
+    if (time_agg and not agg) or (not time_agg and agg):
+        raise Exception("Must be all or none")
+
+    #Data
+    df_viz = final_dataframes[zone][split]
+    
+    #Get all columns requested for analysis
+    sub_cols = []
+    for feat_col in feat_sub_cols:
+        for col in df_viz.columns:
+            if feat_col in col and 'thresh' not in col:
+                sub_cols.append(col)
+    df_viz = df_viz[sub_cols].reset_index()
+
+    #Time Selection
+    brush = alt.selection(type='interval', encodings=['x'])
+    
+    x_encoding = f'{time_agg}(time_utc):O' if time_agg else f'time_utc:O'
+    
+    #Pick Split
+    if agg:
+        split_row = 2
+    else:
+        split_row = 1
+
+    #Create Concatenated Charts
+    chart = alt.vconcat(data=df_viz)
+    row = alt.hconcat()
+    for i in range(1, len(ts_sub_cols)+1):
+        y_encoding = ts_sub_cols[i-1]
+        
+        if agg:
+            #Loss Line
+            row |= alt.Chart(df_viz).mark_line(point={
+                                                  "filled": False,
+                                                  "fill": "white"
+                                                }, tooltip=True).encode(
+                                                    x = alt.X(x_encoding),
+                                                    y = alt.Y(f'{agg}({y_encoding}):Q', 
+                                                             scale=alt.Scale(zero=False)),
+                                                   color=alt.condition(brush, alt.value(bud_green), alt.value('lightgray'))
+                                                    ).add_selection(brush)
+        
+        else:
+            
+            feat_anom_col = y_encoding+'_anomaly'
+            
+            #Loss Points
+            points = alt.Chart(df_viz).mark_circle(size=50, tooltip=True).encode(
+                x = alt.X(x_encoding, axis=alt.Axis(labels=False)),
+                y = alt.Y(f'{y_encoding}:Q', 
+                         scale=alt.Scale(zero=False)),
+                color=alt.condition(brush, 
+                                    alt.Color(f'{feat_anom_col}:N',
+                                              title='Anomaly',
+                                              scale=alt.Scale(
+                                                  domain=[False, True],
+                                                  range=[dark_green, ven_red])),
+                                    alt.value('lightgray'))
+            ).add_selection(brush)
+
+            #Loss Line
+            line = alt.Chart(df_viz).mark_line(color='lightgrey').encode(
+                x = alt.X(x_encoding, axis=alt.Axis(labels=False)),
+                y = alt.Y(f'{y_encoding}:Q', 
+                         scale=alt.Scale(zero=False)),
+            )
+
+            row |= (points + line).properties(width = 1100, height=200)
+            
+        if i % split_row == 0:
+            chart &= row
+            row = alt.hconcat()
+
+    if agg:
+        return chart
+    else:
+        return chart
+
+
+
+feat_sub_cols = ['methane_mixing_ratio_bias_corrected_mean','reading_count',
+               'air_temperature_at_2_metres_mean', 'eastward_wind_at_10_metres_mean'
+              ]
+plot_multi_time_series(3, 'test', feat_sub_cols, time_agg='', agg='')
+
 
