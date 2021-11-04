@@ -30,6 +30,11 @@
 # # !pip install netCDF4
 # -
 
+<<<<<<< HEAD
+=======
+
+
+>>>>>>> 259fa48... added first part of pipeline for methane and weather extraction
 # # Imports
 
 # +
@@ -92,6 +97,7 @@ def print_write(content, f_object, should_print=True):
     if f_object:
         f_object.write(content)
         f_object.write('\n')
+<<<<<<< HEAD
 
 
 # -
@@ -129,6 +135,8 @@ for dt in daterange(start_dt, end_dt):
     date_batches.append(dt.strftime("%Y-%m-%d"))
 
 print(date_batches)
+=======
+>>>>>>> 259fa48... added first part of pipeline for methane and weather extraction
 # -
 
 
@@ -139,8 +147,11 @@ print(date_batches)
 # 1) Load in CA GeoJSON --> Polygon
 # * Check point in Polygon - https://stackoverflow.com/questions/43892459/check-if-geo-point-is-inside-or-outside-of-polygon
 # * Link to GeoJSON - https://github.com/ropensci/geojsonio/blob/master/inst/examples/california.geojson
+<<<<<<< HEAD
 #
 # 2) Test that it worked
+=======
+>>>>>>> 259fa48... added first part of pipeline for methane and weather extraction
 
 ca_geo_path = "/root/methane/data_processing/resources/california.geojson"
 ca_geo_file = open(ca_geo_path)
@@ -183,8 +194,47 @@ print("In California") if inCalifornia(cars_y, cars_x) else print("NOT in Califo
 
 
 
+<<<<<<< HEAD
 # # Helper Functions
 # Define helper functions for pipeline code.
+=======
+# # Create Date Range to Extract S5P Methane Data
+# Each date would be a batch of 14 orbit path files
+
+# +
+from datetime import timedelta, date
+
+start_dt = date(2020, 12, 30 )
+end_dt = date(2020, 12, 31)
+date_batches = []
+
+def daterange(date1, date2):
+    for n in range(int ((date2 - date1).days)+1):
+        yield date1+timedelta(n)
+
+for dt in daterange(start_dt, end_dt):
+    date_batches.append(dt.strftime("%Y-%m-%d"))
+
+print(date_batches)
+
+
+# -
+
+# ### Pipeline Steps
+# <em> All files with dates in `date_batches` will be processed.<em>
+#
+# **NOTE**
+# For every batch we will write a file. Each batch is one day so it would be a file for each date. Then we concatentate all dates to the main dataframe.
+#
+# Steps:
+# 1. We have already defined a date range window.  
+# 2. Download whole batch to local.  
+# 3. Parse each file in batch, and build a dataframe for each batch
+# 4. For every batch we will flush the data to a `.parquet.gzip` straight to S3 in respective folder.
+#     * Format `date_meth.parquet.gzip`
+# 6. Delete contents inside Sagemaker batch folder where `.nc` files were downloaded for a respective batch
+# 7. Write out a `.txt` file that writes out all the steps that happened in the pipeline
+>>>>>>> 259fa48... added first part of pipeline for methane and weather extraction
 
 # +
 #### HELPERS ####
@@ -219,7 +269,11 @@ def getInputFiles(local_path):
     Get list of input files stored on Sagemaker directory 
     (run after getNCFile helper function)
     '''
+<<<<<<< HEAD
     input_files = sorted(list(iglob(join(local_path, '**', '*CH4*.nc' ), recursive=True)), reverse=True)
+=======
+    input_files = sorted(list(iglob(join(local_path, '**', '*CH4*.nc' ), recursive=True)))
+>>>>>>> 259fa48... added first part of pipeline for methane and weather extraction
     return input_files
 ##########################################################################################
 ##########################################################################################
@@ -268,6 +322,7 @@ def processFiles(s5p_products, qa_thresh, outF):
     df_ca = pd.DataFrame(columns=columns)
 
     init_start = time.time()
+<<<<<<< HEAD
     orbits_with_data = 0   #count how many orbits have data, if 2, 
                            #then stop loop b/c 2 orbits typically cover all of California
 
@@ -276,14 +331,20 @@ def processFiles(s5p_products, qa_thresh, outF):
         if orbits_with_data >= 2:
             break
         
+=======
+    for file_number, product_key in enumerate(s5p_products, 1):
+>>>>>>> 259fa48... added first part of pipeline for methane and weather extraction
         start_time = time.time()
         s5p_prod = s5p_products[product_key]
         df_cur_scan = pd.DataFrame(columns=columns)
         times_utc = np.array(s5p_prod.time_utc[0, :])
 
         print_write(f'\tfile_num: {file_number} - {product_key}. start_parse.', outF)
+<<<<<<< HEAD
         
         
+=======
+>>>>>>> 259fa48... added first part of pipeline for methane and weather extraction
         for index, ts in enumerate(times_utc, 0):
             lats = np.array(s5p_prod.latitude[0, :, :][index])
             lons = np.array(s5p_prod.longitude[0, :, :][index])
@@ -312,9 +373,13 @@ def processFiles(s5p_products, qa_thresh, outF):
 
             df_cur_ts = pd.DataFrame(cur_ts_dict)
             df_cur_scan = pd.concat([df_cur_scan, df_cur_ts], ignore_index=True)
+<<<<<<< HEAD
             
             
             
+=======
+
+>>>>>>> 259fa48... added first part of pipeline for methane and weather extraction
         #QA Mask
         qa_mask_df = df_cur_scan['qa_val'] >= qa_thresh
 
@@ -333,6 +398,7 @@ def processFiles(s5p_products, qa_thresh, outF):
         df_ca = pd.concat([df_ca, df_cur_scan_masked], ignore_index=True)
         end_time = time.time()
         print_write(f'\t\t\t\t\tend_parse. shape: {df_cur_scan_masked.shape}, time_taken: {getHumanTime(end_time-start_time)}', outF)
+<<<<<<< HEAD
         
         if df_cur_scan_masked.shape[0] > 0:
             orbits_with_data += 1
@@ -345,6 +411,10 @@ def processFiles(s5p_products, qa_thresh, outF):
 
 
 # # Pipeline
+=======
+    return df_ca, getHumanTime(end_time-init_start)
+
+>>>>>>> 259fa48... added first part of pipeline for methane and weather extraction
 
 # +
 #### CONFIG ####
@@ -358,6 +428,7 @@ pipeline_start = True       #do we want to start this cell or not
 delete_local_files = True   #do we want the local files deleted after each batch? or keep everything
 qa_thresh = 0.0             #do we want to keep specific quality ratings of sp5 methane data?
 
+<<<<<<< HEAD
 #for naming file purposes
 start_year = str(start_dt)[:4]
 start_month = str(start_dt)[5:7]
@@ -367,13 +438,20 @@ end_month = str(end_dt)[5:7]
 end_day = str(end_dt)[-2:]
 
 
+=======
+>>>>>>> 259fa48... added first part of pipeline for methane and weather extraction
 ###### ###### ###### ###### ###### ###### ###### ###### ###### ###### ###### ###### ###### ###### 
 ###### ###### ###### ###### ###### ###### ###### ###### ###### ###### ###### ###### ###### ###### 
 ###### ###### ###### ###### ###### ###### ###### ###### ###### ###### ###### ###### ###### ###### 
 
 if pipeline_start:
+<<<<<<< HEAD
 
         
+=======
+    
+   
+>>>>>>> 259fa48... added first part of pipeline for methane and weather extraction
     #Give the pipeline log file a name
     pipe_start = str(date)   
     outF = open(f"{local_pipe_log_path}pipe_log_{pipe_start}.txt", "w")
@@ -410,7 +488,11 @@ if pipeline_start:
             try:
                 file_name=f'{date}_meth.parquet.gzip'
                 cur_batch_df.to_parquet('s3://{}/{}'.format(s3_path, file_name), compression='gzip')
+<<<<<<< HEAD
                 
+=======
+
+>>>>>>> 259fa48... added first part of pipeline for methane and weather extraction
             except:
                 write_loc = 's3://{}/{}'.format(s3_path+f'/{year}', file_name)
                 print_write(f"ERROR S3 WRITE: {write_loc}", outF)
@@ -436,6 +518,7 @@ else:
     print("PIPELINE CLOSED")
 # -
 
+<<<<<<< HEAD
 # # Test Reading back data
 
 # +
@@ -448,6 +531,16 @@ else:
 # -
 
 
+=======
+# ### Test Reading back data
+
+# +
+# data_key = '20181221_20181228_meth.parquet.gzip'
+# data_location = 's3://{}/{}'.format(s3_path+'/2018', data_key)
+# test_df = pd.read_parquet(data_location)
+# print(test_df.shape)
+# test_df.head()
+>>>>>>> 259fa48... added first part of pipeline for methane and weather extraction
 
 # +
 # # Testing Methane Mask
@@ -459,3 +552,10 @@ else:
 # df_2 = test_df[meth_ca_mask_df]
 # print(df_2.shape)
 # df_2.head()
+<<<<<<< HEAD
+=======
+
+# +
+# Performance Tracker
+# 2 vCPU + 4 GiB ---> 46.80413150787353
+>>>>>>> 259fa48... added first part of pipeline for methane and weather extraction
