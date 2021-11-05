@@ -232,18 +232,14 @@ for ZONE in ZONES:
 
 
 
-s3_path
-
-
-
-
-
 
 
 
 
 import subprocess
 import re
+
+s3_path
 
 # ## Combine all the zone wise splits into one data set
 
@@ -253,13 +249,21 @@ r = re.compile("parquet.gzip")
 zone_files = [x for x in zone_files if 'parquet' in x ]
 zone_files
 
+'data_15.parquet.gzip'.split("_")[1].split('.')[0]
+
+[15]*10
+
 # +
 df_final = None
 
 for ind, zone_file in enumerate(zone_files, 1):
+    
+    cur_zone = zone_file.split("_")[1].split('.')[0]
     cur_path = f's3://{s3_path}/{zone_file}'
-    cur_df = pd.read_parquet(cur_path)
+    cur_df = pd.read_parquet(cur_path)    
+    cur_df.insert(1, 'BZone', [int(cur_zone)]*len(cur_df))
     print(zone_file, cur_df.shape)
+    
     if ind == 1:
         df_final = pd.DataFrame(columns = cur_df.columns)
     df_final = pd.concat([df_final, cur_df])
@@ -269,9 +273,9 @@ for ind, zone_file in enumerate(zone_files, 1):
 
 df_final.shape
 
-s3_path
+df_final.columns
 
-file_name=f'data_zone_combined.parquet.gzip'
+file_name=f'data-zone-combined.parquet.gzip'
 file_path = 's3://{}/{}'.format('methane-capstone/data/combined-raw-data', file_name)
 print(file_path)
 df_final.to_parquet(file_path, compression='gzip')
