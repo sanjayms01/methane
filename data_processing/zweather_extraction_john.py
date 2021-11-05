@@ -23,51 +23,71 @@
 # # !pip install netcdf4
 # # !pip install h5netcdf
 # # REMEMBER TO RESTART KERNEL
-# -
 
-# Initialize notebook environment.
-# %matplotlib inline
+# +
+import traceback
+import sys
+import subprocess
+import pickle
+import os
+import glob
+import datetime
 import boto3
 import botocore
 import datetime
-import matplotlib.pyplot as plt
-import os.path
-import xarray as xr
-import pandas as pd
-import numpy as np
-import time
 
-# +
-#IMPORT METHANE DATA AND ONLY KEEP THE LAT/LON COMBINATIONS TO EXTRACT FROM ERA5 DATA
+from collections import Counter
+try:
 
-# Read in Methane Data
-bucket = 'methane-capstone'
-subfolder = 'data/pipeline-raw-data'
-s3_path = bucket+'/'+subfolder
-file_name='2020-12-30_meth.parquet.gzip'
-data_location = 's3://{}/{}'.format(s3_path, file_name)
-methane_df = pd.read_parquet(data_location)
-methane_df['time_utc'] = pd.to_datetime(methane_df['time_utc']).dt.tz_localize(None)
-methane_df['time_utc_hour'] = methane_df['time_utc'].dt.round('h')
-print(methane_df.shape)
-methane_df.head()
+    from matplotlib import pyplot as plt #viz
+    import matplotlib.colors as colors #colors for viz
+    import xarray as xr #process NetCDF
+    import numpy as np
+    import pandas as pd #data manipulation
+    import matplotlib.gridspec as gridspec #create subplot
+    from glob import iglob #data access in file manager
+    from os.path import join 
+    from functools import reduce #string manipulation
+    import itertools #dict manipulation
+    import matplotlib.patches as mpatches
+    
+    from datetime import datetime, timedelta
+    import time
+    import pytz
+    
+    
+    #GeoPandas
+    import geopandas as gpd
+    from shapely.geometry import Point
+    from shapely.geometry.polygon import Polygon
+    
+except ModuleNotFoundError:
 
-# +
-#Create list of lat/lon combinations
-lat_lon = methane_df.groupby(['rn_lat_2', 'rn_lon_2']).count().reset_index()
-locs = []
-for lat,lon in zip(list(lat_lon['rn_lat_2']), list(lat_lon['rn_lon_2'])):
-    combined = {}
-    combined['name'] = str(lat)+str(lon)
-    combined['lon'] = lon
-    combined['lat'] = lat
-    locs.append(combined)
+    print('\nModule import error', '\n')
+    print(traceback.format_exc())
 
-for l in locs:
-    if l['lon'] < 0:
-        l['lon'] = 360 + l['lon']
-print(len(locs))
-locs[:5]
+else:
+    print('\nAll libraries proeprly loaded!!', '\n')
+
+### HELPER FUNCTIONS
+def getHumanTime(seconds):
+    '''Make seconds human readable'''
+    if seconds <= 1.0:
+        return '00:00:01'
+    
+    seconds = int(seconds)
+    m, s = divmod(seconds, 60)
+    h, m = divmod(m, 60)
+    return '{:d}:{:02d}:{:02d}'.format(h, m, s) # Python 3
+
+
+def print_write(content, f_object, should_print=True):
+    '''This function will both, and write the content to a local file'''
+    if should_print: print(content)
+    if f_object:
+        f_object.write(content)
+        f_object.write('\n')
+
 
 # +
 from datetime import timedelta, date
@@ -85,22 +105,108 @@ for dt in daterange(start_dt, end_dt):
 
 # print(date_batches)
 
-date_list=[]
-year_month_set=set()
+# date_list=[]
+# year_month_set=set()
+
+# for date in date_batches:
+#     year = date[:4]
+#     month = date[5:7]
+#     year_month = year+month
+#     if year_month not in year_month_set:
+#         date_list.append(datetime.date(int(year),int(month),1))
+#         year_month_set.add(year_month)
+    
+# # print(date_list)
+# print(year_month_set)
+
+# +
+# #IMPORT METHANE DATA AND ONLY KEEP THE LAT/LON COMBINATIONS TO EXTRACT FROM ERA5 DATA
+
+# # Read in Methane Data
+# bucket = 'methane-capstone'
+# subfolder = 'data/pipeline-raw-data'
+# s3_path = bucket+'/'+subfolder
+# file_name=f'{date_batches[0]}_meth.parquet.gzip'
+# data_location = 's3://{}/{}'.format(s3_path, file_name)
+# methane_df = pd.read_parquet(data_location)
+# methane_df['time_utc'] = pd.to_datetime(methane_df['time_utc']).dt.tz_localize(None)
+# methane_df['time_utc_hour'] = methane_df['time_utc'].dt.round('h')
+# print(methane_df.shape)
+# methane_df.head()
+
+# +
+# #Create list of lat/lon combinations
+# lat_lon = methane_df.groupby(['rn_lat_2', 'rn_lon_2']).count().reset_index()
+# locs = []
+# for lat,lon in zip(list(lat_lon['rn_lat_2']), list(lat_lon['rn_lon_2'])):
+#     combined = {}
+#     combined['name'] = str(lat)+str(lon)
+#     combined['lon'] = lon
+#     combined['lat'] = lat
+#     locs.append(combined)
+
+# for l in locs:
+#     if l['lon'] < 0:
+#         l['lon'] = 360 + l['lon']
+# print(len(locs))
+# locs[:5]
+
+# +
+#Helper Function
+
+def getInputFiles(local_path):
+    '''
+    Get list of input files stored on Sagemaker directory 
+    (run after getNCFile helper function)
+    '''
+    input_files1 = sorted(list(iglob(join(local_path, '**', '**.nc' ), recursive=True)), reverse=True)
+    input_files2 = sorted(list(iglob(join(local_path, '**', '**.gzip' ), recursive=True)), reverse=True)
+    input_files = input_files1+input_files2
+    return input_files
+
+
+# +
+delete_local_files = True
 
 for date in date_batches:
+
+    #IMPORT METHANE DATA AND ONLY KEEP THE LAT/LON COMBINATIONS TO EXTRACT FROM ERA5 DATA
+
+    # Read in Methane Data
+    bucket = 'methane-capstone'
+    subfolder = 'data/pipeline-raw-data'
+    s3_path = bucket+'/'+subfolder
+    file_name=f'{date_batches[0]}_meth.parquet.gzip'
+    data_location = 's3://{}/{}'.format(s3_path, file_name)
+    methane_df = pd.read_parquet(data_location)
+    methane_df['time_utc'] = pd.to_datetime(methane_df['time_utc']).dt.tz_localize(None)
+    methane_df['time_utc_hour'] = methane_df['time_utc'].dt.round('h')
+#     print(methane_df.shape)
+#     methane_df.head()
+    
+    #Create list of lat/lon combinations
+    lat_lon = methane_df.groupby(['rn_lat_2', 'rn_lon_2']).count().reset_index()
+    locs = []
+    for lat,lon in zip(list(lat_lon['rn_lat_2']), list(lat_lon['rn_lon_2'])):
+        combined = {}
+        combined['name'] = str(lat)+str(lon)
+        combined['lon'] = lon
+        combined['lat'] = lat
+        locs.append(combined)
+
+    for l in locs:
+        if l['lon'] < 0:
+            l['lon'] = 360 + l['lon']
+#     print(len(locs))
+#     locs[:5]
+    
+    # update string date to datetime date
     year = date[:4]
     month = date[5:7]
-    year_month = year+month
-    if year_month not in year_month_set:
-        date_list.append(datetime.date(int(year),int(month),1))
-        year_month_set.add(year_month)
+    date_str = date
+    import datetime
+    date = datetime.date(int(year), int(month), 1)
     
-# print(date_list)
-print(year_month_set)
-# -
-
-for date in date_list:
     #CHECK ERA5 DATA
 
     #bucket
@@ -228,6 +334,107 @@ for date in date_list:
         print("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
 
     print("time to download all variables (secs): ", time.time()-start)
+    
+    ######################################
+    # MERGE WEATHER DATA WITH METHANE DATA
+    ######################################
+
+    print("Start merging weather data to methane data, for each date")
+    merge_start = time.time()
+    
+    #List of Variable Names:
+    variable_names = ['air_pressure_at_mean_sea_level',
+    'air_temperature_at_2_metres',
+    'air_temperature_at_2_metres_1hour_Maximum',
+    'air_temperature_at_2_metres_1hour_Minimum',
+    'dew_point_temperature_at_2_metres',
+    'eastward_wind_at_100_metres',
+    'eastward_wind_at_10_metres',
+    'lwe_thickness_of_surface_snow_amount',
+    'northward_wind_at_100_metres',
+    'northward_wind_at_10_metres',
+    'snow_density',
+    'surface_air_pressure',             
+    'integral_wrt_time_of_surface_direct_downwelling_shortwave_flux_in_air_1hour_Accumulation',
+    'precipitation_amount_1hour_Accumulation']
+
+    #These variables have a different dataframe format, need additional filtering
+    variable_names_additional_filter=['integral_wrt_time_of_surface_direct_downwelling_shortwave_flux_in_air_1hour_Accumulation',
+    'precipitation_amount_1hour_Accumulation', 'air_temperature_at_2_metres_1hour_Maximum','air_temperature_at_2_metres_1hour_Minimum' ]
+
+    #Define function for splitting data
+    def split_lat(x):
+        return x.split("-")[0]
+    def split_lon(x):
+        y = x.split("-")[1].split("_")[0]
+        return "-"+y
+
+    #Local data
+    local_path = '/root/methane/data_processing/weather_data/'
+    
+#     year=str(date)[:4]
+#     month=str(date)[5:7]
+
+    for variable in variable_names:
+
+        print("working on variable: ", variable)
+
+        #READ WEATHER DF STORED LOCALLY, REFORMAT, MERGE WITH METHANE DATAFRAME, WRITE TO S3 DRIVE
+        file_name='{}_{}_'.format(year,month)+variable+'.parquet.gzip'
+        weather_df = pd.read_parquet(local_path+file_name).reset_index()
+
+        if variable in variable_names_additional_filter:
+            print('feature w/ additional filter')
+            weather_df=weather_df[weather_df.nv==0]
+            weather_df.drop(weather_df.columns[1:3],axis=1,inplace=True)  #drop nv and timebound columns     
+            # Melt columns from different latitudes and longitudes to only 1 column
+            weather_df_melt = pd.melt(weather_df, id_vars=['time1'], value_vars= weather_df.columns[1:],
+                                     value_name=file_name.split('.')[0][8:])
+            #Create lat and lon columns for joining to methane data
+            weather_df_melt['lat_w'] = weather_df_melt['variable'].apply(split_lat)
+            weather_df_melt['lon_w'] = weather_df_melt['variable'].apply(split_lon)
+            weather_df_melt[['lat_w','lon_w']] = weather_df_melt[['lat_w','lon_w']].apply(pd.to_numeric)  #need these to be floats
+
+            #Truncate datetime for methane dataframe and weather dataframe to 1 hour for merging
+            weather_df_melt['time0_hour'] = weather_df_melt['time1'].dt.round('h')    
+
+            #Merge with Methane Data
+            methane_df = pd.merge(methane_df, weather_df_melt, how='left', left_on = ['time_utc_hour', 'rn_lat', 'rn_lon'], right_on = ['time0_hour','lat_w','lon_w'])
+            methane_df.drop(['time1','lat_w','lon_w', 'time0_hour','variable'], axis=1,inplace=True) #drop irrelvant columns
+
+        else: 
+            print('feature w/o additional filter')
+            # Melt columns from different latitudes and longitudes to only 1 column
+            weather_df_melt = pd.melt(weather_df, id_vars=['time0'], value_vars= weather_df.columns[1:],
+                                     value_name=file_name.split('.')[0][8:])
+            #Create lat and lon columns for joining to methane data
+            weather_df_melt['lat_w'] = weather_df_melt['variable'].apply(split_lat)
+            weather_df_melt['lon_w'] = weather_df_melt['variable'].apply(split_lon)
+            weather_df_melt[['lat_w','lon_w']] = weather_df_melt[['lat_w','lon_w']].apply(pd.to_numeric)  #need these to be floats
+
+            #Truncate datetime for methane dataframe and weather dataframe to 1 hour for merging
+            weather_df_melt['time0_hour'] = weather_df_melt['time0'].dt.round('h')
+
+            #Merge with Methane Data
+            methane_df = pd.merge(methane_df, weather_df_melt, how='left', left_on = ['time_utc_hour', 'rn_lat', 'rn_lon'], right_on = ['time0_hour','lat_w','lon_w'])
+            methane_df.drop(['time0','lat_w','lon_w', 'time0_hour','variable'], axis=1,inplace=True) #drop irrelvant columns
+        
+        #write methane_weather data
+#         bucket = 'methane-capstone'
+#         subfolder = 'data/pipeline-raw-data'
+#         s3_path = bucket+'/'+subfolder
+        file_name=f'{date_str}_meth_weather.parquet.gzip'
+        methane_df.to_parquet('s3://{}/{}'.format(s3_path, file_name), compression='gzip')
+        
+        print("date: {}, methane and weather data merged successfully in {} seconds".format(date, (time.time()- merge_start)))
+
+
+    input_files = getInputFiles(local_path)
+    if delete_local_files:
+        for f in input_files:
+            os.remove(f)
+        print("deleted weather files after all weather merge completed")
+    
 
 # +
 # # READ FILE TO TEST THAT IT WORKED
@@ -242,6 +449,22 @@ for date in date_list:
 
 # # MERGE ERA5 WEATHER DATA WITH METHANE DATAFRAME
 
+# +
+# #Create combined dataframe
+# combined_df = pd.DataFrame()
+# file_name=f'{str(start_dt)}_{str(end_dt)}_meth.parquet.gzip'
+# combined_df.to_parquet('s3://{}/{}'.format(s3_path, file_name), compression='gzip') 
+
+
+# #combine each batch df into a single df and write to S3
+# if combined_df.shape[0] == 0:
+#     combined_df = cur_batch_df
+# else:
+#     combined_df = combined_df.append(cur_batch_df)
+#     combined_df.to_parquet('s3://{}/{}'.format(s3_path, file_name), compression='gzip') 
+
+# -
+
 methane_df.head()
 
 # ### Append Weather Data
@@ -250,123 +473,24 @@ methane_df.head()
 # 1) Format extracted weather data into a format to merge to methane dataframe  
 # 2) Merge formatted data into methane dataframe
 
-# +
-#List of Variable Names:
-variable_names = ['air_pressure_at_mean_sea_level',
-'air_temperature_at_2_metres',
-'air_temperature_at_2_metres_1hour_Maximum',
-'air_temperature_at_2_metres_1hour_Minimum',
-'dew_point_temperature_at_2_metres',
-'eastward_wind_at_100_metres',
-'eastward_wind_at_10_metres',
-'lwe_thickness_of_surface_snow_amount',
-'northward_wind_at_100_metres',
-'northward_wind_at_10_metres',
-'snow_density',
-'surface_air_pressure',             
-'integral_wrt_time_of_surface_direct_downwelling_shortwave_flux_in_air_1hour_Accumulation',
-'precipitation_amount_1hour_Accumulation']
-
-#These variables have a different dataframe format, need additional filtering
-variable_names_additional_filter=['integral_wrt_time_of_surface_direct_downwelling_shortwave_flux_in_air_1hour_Accumulation',
-'precipitation_amount_1hour_Accumulation', 'air_temperature_at_2_metres_1hour_Maximum','air_temperature_at_2_metres_1hour_Minimum' ]
-
-#Define function for splitting data
-def split_lat(x):
-    return x.split("-")[0]
-def split_lon(x):
-    y = x.split("-")[1].split("_")[0]
-    return "-"+y
-
-#Local data
-file_location = 'weather_data/'
-
-#Specify time
-date_list
-date = str(date_list[0])
-date
-# -
-
 # ###  Weather Variables
 
 # +
-year=date[:4]
-month=date[5:7]
-
-for variable in variable_names:
-    
-    print("working on variable: ", variable)
-    
-    #READ WEATHER DF, REFORMAT, MERGE WITH METHANE DATAFRAME, WRITE TO DRIVE
-    file_name='{}_{}_'.format(year,month)+variable+'.parquet.gzip'
-    weather_df = pd.read_parquet(file_location+file_name).reset_index()
-
-    if variable in variable_names_additional_filter:
-        print('additional filter')
-        weather_df=weather_df[weather_df.nv==0]
-        weather_df.drop(weather_df.columns[1:3],axis=1,inplace=True)  #drop nv and timebound columns     
-        # Melt columns from different latitudes and longitudes to only 1 column
-        weather_df_melt = pd.melt(weather_df, id_vars=['time1'], value_vars= weather_df.columns[1:],
-                                 value_name=file_name.split('.')[0][8:])
-        #Create lat and lon columns for joining to methane data
-        weather_df_melt['lat_w'] = weather_df_melt['variable'].apply(split_lat)
-        weather_df_melt['lon_w'] = weather_df_melt['variable'].apply(split_lon)
-        weather_df_melt[['lat_w','lon_w']] = weather_df_melt[['lat_w','lon_w']].apply(pd.to_numeric)  #need these to be floats
-
-        #Truncate datetime for methane dataframe and weather dataframe to 1 hour for merging
-        weather_df_melt['time0_hour'] = weather_df_melt['time1'].dt.round('h')    
-        
-        #Merge with Methane Data
-        methane_df = pd.merge(methane_df, weather_df_melt, how='left', left_on = ['time_utc_hour', 'rn_lat', 'rn_lon'], right_on = ['time0_hour','lat_w','lon_w'])
-        methane_df.drop(['time1','lat_w','lon_w', 'time0_hour','variable'], axis=1,inplace=True) #drop irrelvant columns
-    
-    else: 
-        print('no additional filter')
-        # Melt columns from different latitudes and longitudes to only 1 column
-        weather_df_melt = pd.melt(weather_df, id_vars=['time0'], value_vars= weather_df.columns[1:],
-                                 value_name=file_name.split('.')[0][8:])
-        #Create lat and lon columns for joining to methane data
-        weather_df_melt['lat_w'] = weather_df_melt['variable'].apply(split_lat)
-        weather_df_melt['lon_w'] = weather_df_melt['variable'].apply(split_lon)
-        weather_df_melt[['lat_w','lon_w']] = weather_df_melt[['lat_w','lon_w']].apply(pd.to_numeric)  #need these to be floats
-
-        #Truncate datetime for methane dataframe and weather dataframe to 1 hour for merging
-        weather_df_melt['time0_hour'] = weather_df_melt['time0'].dt.round('h')
-        
-        #Merge with Methane Data
-        methane_df = pd.merge(methane_df, weather_df_melt, how='left', left_on = ['time_utc_hour', 'rn_lat', 'rn_lon'], right_on = ['time0_hour','lat_w','lon_w'])
-        methane_df.drop(['time0','lat_w','lon_w', 'time0_hour','variable'], axis=1,inplace=True) #drop irrelvant columns
-
-
-
-    
-# -
-
-methane_df
-
-# # CHECK MERGED DATA
-
-methane_df['time_utc'] =methane_df['time_utc'].astype('datetime64[ms]')  #convert to miliseconds b/c ns doesnt work for writing for some reason...
-methane_df
-
 #write methane data
-bucket = 'methane-capstone'
-subfolder = 'data/weather/era5'
-s3_path_month = bucket+'/'+subfolder
-file_name='{}-{}_methane_and_weather.parquet'.format(year,month)
-data_location = 's3://{}/{}'.format(s3_path_month, file_name)
+
 methane_df.to_parquet(data_location)
 methane_df.head(2)
+# -
 
 #IMPORT METHANE DATA
 bucket = 'methane-capstone'
-subfolder = 'data/weather/era5'
+subfolder = 'data/pipeline-raw-data'
 s3_path_month = bucket+'/'+subfolder
-file_name='{}-{}_methane_and_weather.parquet'.format(year,month)
+file_name='2020-12-31_meth_weather.parquet.gzip'.format(year,month)
 data_location = 's3://{}/{}'.format(s3_path_month, file_name)
 test_df = pd.read_parquet(data_location)
 test_df.head(2)
 
-
+test_df
 
 
