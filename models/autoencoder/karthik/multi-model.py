@@ -112,8 +112,6 @@ def generate_datasets(data, window_size, describe=False):
     return (Xs.shape[2], Xs, Ys)
 # -
 
-# ### Load Data
-
 
 
 
@@ -332,7 +330,7 @@ df, train, val, test = load_all_zone_data()
 
 # ### Track Everything
 
-# +
+# + jupyter={"outputs_hidden": true}
 #select region and features
 zones = [x for x in range(1,17)]
 
@@ -465,12 +463,13 @@ s3 = boto3.client('s3')
 # ### Write out to Pickle Files
 
 ## FIRST YOU NEED TO MAKE THIS FOLDER
+today_dt = datetime.today().strftime('%Y%m%d')
 f'zone_artifacts_{today_dt}'
 
 # +
 #### Dictionaries ####
 
-today_dt = datetime.today().strftime('%Y%m%d')
+
 # feature_loss_tracker
 # df_tracker
 # model_metrics_tracker
@@ -652,7 +651,7 @@ def plot_multi_loss(zone, split, feat_sub_cols):
 
     '''
     zone = 1-16
-    split = ['train', 'val']
+    split = ['train', 'val', 'test']
     feat_sub_cols = [<LIST OF FEATURES>]
     '''
     
@@ -719,12 +718,12 @@ def plot_multi_loss(zone, split, feat_sub_cols):
                                                         )
 
 
-
+feature_cols
 
 # ### Plot Loss by Zone
 
 cols = ['methane_mixing_ratio_bias_corrected_mean','reading_count','qa_val_mean']
-plot_multi_loss(1, 'test', cols)
+plot_multi_loss(1, 'val', cols)
 
 
 
@@ -761,8 +760,8 @@ def plot_multi_time_series(zone, split, feat_sub_cols, time_agg='', agg=''):
     #Create Concatenated Charts
     chart = alt.vconcat(data=df_viz)
     row = alt.hconcat()
-    for i in range(1, len(ts_sub_cols)+1):
-        y_encoding = ts_sub_cols[i-1]
+    for i in range(1, len(feat_sub_cols)+1):
+        y_encoding = feat_sub_cols[i-1]
         
         if agg:
             #Loss Line
@@ -814,9 +813,13 @@ def plot_multi_time_series(zone, split, feat_sub_cols, time_agg='', agg=''):
 
 
 
+# +
 feat_sub_cols = ['methane_mixing_ratio_bias_corrected_mean','reading_count',
                'air_temperature_at_2_metres_mean', 'eastward_wind_at_10_metres_mean'
               ]
-plot_multi_time_series(3, 'test', feat_sub_cols, time_agg='', agg='')
+
+
+plot_multi_time_series(3, 'train', feat_sub_cols, time_agg='yearmonth', agg='mean')
+# -
 
 
