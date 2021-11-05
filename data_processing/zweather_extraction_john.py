@@ -436,6 +436,7 @@ for date in date_batches:
         print("deleted weather files after all weather merge completed")
     
 
+
 # +
 # # READ FILE TO TEST THAT IT WORKED
 # var='2020_12_air_temperature_at_2_metres'
@@ -487,6 +488,7 @@ bucket = 'methane-capstone'
 subfolder = 'data/pipeline-raw-data'
 s3_path_month = bucket+'/'+subfolder
 file_name='2020-12-31_meth_weather.parquet.gzip'.format(year,month)
+
 data_location = 's3://{}/{}'.format(s3_path_month, file_name)
 test_df = pd.read_parquet(data_location)
 test_df.head(2)

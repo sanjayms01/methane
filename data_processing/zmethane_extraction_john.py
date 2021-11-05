@@ -129,6 +129,7 @@ for dt in daterange(start_dt, end_dt):
     date_batches.append(dt.strftime("%Y-%m-%d"))
 
 print(date_batches)
+
 # -
 
 
@@ -186,6 +187,7 @@ print("In California") if inCalifornia(cars_y, cars_x) else print("NOT in Califo
 # # Helper Functions
 # Define helper functions for pipeline code.
 
+
 # +
 #### HELPERS ####
 ##########################################################################################
@@ -220,6 +222,7 @@ def getInputFiles(local_path):
     (run after getNCFile helper function)
     '''
     input_files = sorted(list(iglob(join(local_path, '**', '*CH4*.nc' ), recursive=True)), reverse=True)
+
     return input_files
 ##########################################################################################
 ##########################################################################################
@@ -276,14 +279,14 @@ def processFiles(s5p_products, qa_thresh, outF):
         if orbits_with_data >= 2:
             break
         
+
         start_time = time.time()
         s5p_prod = s5p_products[product_key]
         df_cur_scan = pd.DataFrame(columns=columns)
         times_utc = np.array(s5p_prod.time_utc[0, :])
 
         print_write(f'\tfile_num: {file_number} - {product_key}. start_parse.', outF)
-        
-        
+
         for index, ts in enumerate(times_utc, 0):
             lats = np.array(s5p_prod.latitude[0, :, :][index])
             lons = np.array(s5p_prod.longitude[0, :, :][index])
@@ -312,9 +315,7 @@ def processFiles(s5p_products, qa_thresh, outF):
 
             df_cur_ts = pd.DataFrame(cur_ts_dict)
             df_cur_scan = pd.concat([df_cur_scan, df_cur_ts], ignore_index=True)
-            
-            
-            
+
         #QA Mask
         qa_mask_df = df_cur_scan['qa_val'] >= qa_thresh
 
@@ -346,6 +347,7 @@ def processFiles(s5p_products, qa_thresh, outF):
 
 # # Pipeline
 
+
 # +
 #### CONFIG ####
 local_pipe_log_path = '/root/methane/data_processing/pipeline_runs/'
@@ -358,7 +360,7 @@ pipeline_start = True       #do we want to start this cell or not
 delete_local_files = True   #do we want the local files deleted after each batch? or keep everything
 qa_thresh = 0.0             #do we want to keep specific quality ratings of sp5 methane data?
 
-#for naming file purposes
+
 start_year = str(start_dt)[:4]
 start_month = str(start_dt)[5:7]
 start_day = str(start_dt)[-2:]
@@ -367,13 +369,8 @@ end_month = str(end_dt)[5:7]
 end_day = str(end_dt)[-2:]
 
 
-###### ###### ###### ###### ###### ###### ###### ###### ###### ###### ###### ###### ###### ###### 
-###### ###### ###### ###### ###### ###### ###### ###### ###### ###### ###### ###### ###### ###### 
-###### ###### ###### ###### ###### ###### ###### ###### ###### ###### ###### ###### ###### ###### 
-
 if pipeline_start:
 
-        
     #Give the pipeline log file a name
     pipe_start = str(date)   
     outF = open(f"{local_pipe_log_path}pipe_log_{pipe_start}.txt", "w")
@@ -410,7 +407,7 @@ if pipeline_start:
             try:
                 file_name=f'{date}_meth.parquet.gzip'
                 cur_batch_df.to_parquet('s3://{}/{}'.format(s3_path, file_name), compression='gzip')
-                
+
             except:
                 write_loc = 's3://{}/{}'.format(s3_path+f'/{year}', file_name)
                 print_write(f"ERROR S3 WRITE: {write_loc}", outF)
@@ -459,3 +456,4 @@ else:
 # df_2 = test_df[meth_ca_mask_df]
 # print(df_2.shape)
 # df_2.head()
+
