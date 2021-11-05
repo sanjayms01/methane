@@ -12,6 +12,14 @@
 #     name: python3__SAGEMAKER_INTERNAL__arn:aws:sagemaker:us-west-2:236514542706:image/datascience-1.0
 # ---
 
+# ### Understand Climate Zones
+# * https://cecgis-caenergy.opendata.arcgis.com/datasets/CAEnergy::california-building-climate-zones/explore?location=37.062390%2C-120.193659%2C5.99
+# * https://www.pge.com/includes/docs/pdfs/about/edusafety/training/pec/toolbox/arch/climate/california_climate_zones_01-16.pdf
+
+#
+
+
+
 # +
 import pandas as pd
 import numpy as np
@@ -35,7 +43,8 @@ alt.data_transformers.disable_max_rows()
 
 # +
 start = time.time()
-s3_file_path = 's3://methane-capstone/data/combined-raw-data/combined-raw.parquet.gzip'
+s3_file_path = 's3://methane-capstone/data/combined-raw-data/combined-raw-facility-oil-weather.parquet.gzip'
+
 
 df = pd.read_parquet(s3_file_path)
 df['time_utc'] = pd.to_datetime(df['time_utc'])
@@ -49,38 +58,36 @@ print("Load time", end-start)
 
 
 
-# +
 #Read new file
-file_name = '/root/methane/data_processing/resources/vista-ca-combined'
-gdf = gpd.read_file("{}.shp".format(file_name))
-gdf['area'] = gdf['geometry'].to_crs({'init': 'epsg:3395'})\
-               .map(lambda p: p.area / 10**6)
+file_name = '/root/methane/data_processing/resources/ca_building_climate_zones.geojson'
+cl_gdf = gpd.read_file(file_name)
+cl_gdf
 
-lats = np.array(gdf['latitude'])
-lons = np.array(gdf['longitude'])
-        
-gdf['rn_lat_1'] =  np.round(lats, 1)
-gdf['rn_lon_1'] =  np.round(lons, 1)
+# +
+city_rep = {    
+    '1': 'Arcata',
+    '2': 'Santa Rosa',
+    '3': 'Oakland',
+    '4': 'San Jose-Reid',
+    '5': 'Santa Maria',
+    '6': 'Torrance',
+    '7': 'San Diego-Lindbergh',
+    '8': 'Fullerton',
+    '9': 'Burbank-Glendale',
+    '10':'Riverside',
+    '11': 'Red Bluff',
+    '12':'Sacramento',
+    '13':'Fresno',
+    '14':'Palmdale',
+    '15':'Palm Spring-Intl',
+    '16':'Blue Canyon'    
+}
 
-gdf['rn_lat_2'] =  np.round(lats*5)/5
-gdf['rn_lon_2'] =  np.round(lons*5)/5
-
-gdf['rn_lat_5'] =  np.round(lats*2)/2
-gdf['rn_lon_5'] =  np.round(lons*2)/2
-
-gdf['rn_lat'] =  np.round(lats, 0)
-gdf['rn_lon'] =  np.round(lons, 0)
-
-
-print(gdf.shape)
-gdf.head()
+cl_gdf.insert(1, 'rep_city', [city_rep[x] for x in cl_gdf['BZone']])
+cl_gdf['center_lat'] = cl_gdf.geometry.centroid.y
+cl_gdf['center_lon'] = cl_gdf.geometry.centroid.x
+cl_gdf.head()
 # -
-
-gdf.groupby('vistastype').agg({'area': ['mean','count']})
-
-
-
-
 
 # ### Plot CA
 
@@ -91,11 +98,11 @@ with open(geo_json_path) as json_file:
 ca_poly = geojson_data['geometry']
 
 ca_gdf = gpd.read_file(geo_json_path)
-choro_json = json.loads(ca_gdf.to_json())
-choro_data = alt.Data(values=choro_json['features'])
+ca_choro_json = json.loads(ca_gdf.to_json())
+ca_choro_data = alt.Data(values=ca_choro_json['features'])
 
 # Create Base CA Map
-ca_base = alt.Chart(choro_data, title = 'California ').mark_geoshape(
+ca_base = alt.Chart(ca_choro_data).mark_geoshape(
     color='lightgrey',
     opacity=0.3,
     stroke='black',
@@ -104,43 +111,106 @@ ca_base = alt.Chart(choro_data, title = 'California ').mark_geoshape(
     width=500,
     height=500
 )
+# -
+
+
+
+# ### Plot Regions
+
+
+
+# +
+def open_geojson(geo_json_file_loc):
+    with open(geo_json_file_loc) as json_data:
+        d = json.load(json_data)
+    return d
+
+def get_gpd_df(geo_json_file_loc):
+    chicago_json = open_geojson(geo_json_file_loc)
+    gdf = gpd.GeoDataFrame.from_features((chicago_json))
+    return gdf
+
+def gen_map(geodata, chart_title, color_column, legend_title, tooltip, color_scheme='bluegreen', label=''):
+    '''
+    Generates Chicago Area map with car theft count choropleth
+    '''
+    # Add Base Layer
+    base = alt.Chart(geodata, title = chart_title).mark_geoshape(
+        color='lightgrey',
+        opacity=0.3,
+        stroke='black',
+        strokeWidth=1
+    ).encode().properties(
+        width=800,
+        height=800
+    )
+    
+    # Add Choropleth Layer
+    choro = alt.Chart(geodata).mark_geoshape(
+        stroke='black'
+    ).encode(
+        alt.Color(color_column,
+                  scale=alt.Scale(scheme=color_scheme),
+                  title = legend_title),
+        tooltip=tooltip
+    )
+
+    if label:
+        # Add Labels Layer
+        labels = alt.Chart(cl_gdf).mark_text(baseline='top'
+        ).properties(
+          width=400,
+          height=400
+        ).encode(
+             longitude='center_lon:Q',
+             latitude='center_lat:Q',
+             text='BZone:N',
+             size=alt.value(10),
+             opacity=alt.value(1)
+         )
+        return base + choro + labels
+    else:
+        return base + choro
+# -
+
+
+
+# +
+#https://www.districtdatalabs.com/altair-choropleth-viz
+
+cl_choro_json = json.loads(cl_gdf.to_json())
+cl_choro_data = alt.Data(values=cl_choro_json['features'])
+
+# Create Base CA Map
+climate_regions = alt.Chart(cl_choro_data, title = 'CA Climate Regions').mark_geoshape(
+    opacity=0.3,
+    stroke='black',
+    strokeWidth=1
+).encode(
+    color = 'properties.BZone:N'
+).properties(
+    width=500,
+    height=500
+)
+
+
+labels = alt.Chart(cl_gdf).mark_text().properties(
+    width=400,
+    height=400
+ ).encode(
+     longitude='center_lon:Q',
+     latitude='center_lat:Q',
+     text='BZone:N',
+     size=alt.value(10),
+     opacity=alt.value(1)
+ )
 
 # -
 
-gdf.head()
-
-gdf.columns
+climate_regions + labels
 
 # +
-gdf_oil_wells = gdf[gdf['vistastype'] == 'Oil and Gas Well']
-gdf_trim = gdf[gdf['vistastype'] != 'Oil and Gas Well']
-
-print(gdf_oil_wells.shape)
-print(gdf_trim.shape)
-
-
-# +
-points = alt.Chart(gdf_oil_wells[:30000]).mark_circle(size=10).encode(
-    longitude=f'longitude:Q',
-    latitude=f'latitude:Q',
-    tooltip= 'vistastype',
-    color='vistastype:N'
-)
-
-ca_base + points
-
-# +
-#Plot all the readings
-gdf_trim_plot= gdf_trim[['latitude', 'longitude', 'vistastype', 'area']]
-
-points = alt.Chart(gdf_trim_plot).mark_circle(size=10).encode(
-    longitude=f'longitude:Q',
-    latitude=f'latitude:Q',
-    tooltip= 'vistastype',
-    color='vistastype:N'
-)
-
-ca_base + points
+# df[df['time_utc'] < datetime(2018, 11, 29)]
 # -
 
 
@@ -149,12 +219,12 @@ ca_base + points
 
 # +
 # List of all facilities polygons
+zone_id_list = cl_gdf['BZone'].tolist()
+region_poly_list = cl_gdf['geometry'].tolist()
 
-vista_type_list = gdf_trim['vistastype'].tolist()
-poly_list = gdf_trim['geometry'].tolist()
 
-print(len(vista_type_list))
-print(len(poly_list))
+print(len(region_poly_list))
+print(len(zone_id_list))
 
 # +
 lats = df['lat'].tolist()
@@ -172,42 +242,34 @@ processed_points = [process_points(lons[i], lats[i]) for i in tqdm(range(len(lat
 
 
 # +
-type_and_inFacility = []
+point_zones = []
 
 start = time.time()
 for point in tqdm(processed_points):
     
     found=False
     
-    for i, poly in enumerate(poly_list, 0):
+    for i, poly in enumerate(region_poly_list, 0):
         if poly.contains(point):
-            type_and_inFacility.append((str(vista_type_list[i]), True))
+            point_zones.append(zone_id_list[i])
             found = True
             
             #If point has been found, no need to look at other polys
             break
 
     if not found:   
-        type_and_inFacility.append((None, False))
+        point_zones.append(None)
 
 end = time.time()
 # -
 
-df['point_type'] = [tup[0] for tup in tqdm(type_and_inFacility)]
-
-
-df['inFacility'] = [tup[1] for tup in tqdm(type_and_inFacility)]
-
-# +
-# start = time.time()
-# df['inFacility'] = df[['lat','lon']].apply(isInAFacility, axis=1)
-# end = time.time()
-# print(end-start)
+df['BZone'] = point_zones
 
 # +
 bucket = 'methane-capstone'
 subfolder = 'data/combined-raw-data'
 s3_path = bucket+'/'+subfolder
+
 
 def write_to_s3(dataframe, file_name):
 
@@ -217,88 +279,258 @@ def write_to_s3(dataframe, file_name):
     dataframe.to_parquet(file_path, compression='gzip')
 
 
-# +
-# write_to_s3(df, 'combined-raw-facility-details-1')
 # -
 
-df.groupby('point_type').size()
+write_to_s3(df, 'combined-raw-facility-oil-weather')
 
-df.groupby('inFacility').size()
 
-# ### Merge Oil and Gas Well Points
-#
-# * All these places we do not have polygons, only points
+
+
+
+# ## Region EDA 
+
+
+
+
+
+df_zone_split = df.groupby('BZone').size().reset_index().rename({0:"count"}, axis=1)
+df_zone_split['percent'] = df_zone_split['count']*100/ df_zone_split['count'].sum()
+df_zone_split = df_zone_split.sort_values(by='percent', ascending=False)
+df_zone_split
+
+climate_regions + labels
+
+
+
+
+# ### Missing Region Points:
+
+missing_zones.set_index("time_utc").groupby(pd.Grouper(freq="Y")).size()
 
 # +
-sample_df = pd.DataFrame(columns=['latitude','longitude','vistastype','geometry','area'])
-lat_sorted = gdf_oil_wells.sort_values('latitude')
+miss_ym_group = missing_zones.groupby(df.time_utc.dt.date).size().reset_index().rename({0:"count"}, axis=1)
+miss_ym_group['time_utc'] = pd.to_datetime(miss_ym_group['time_utc'])
+daily = alt.Chart(miss_ym_group, title="Unknown Regions - Daily Count").mark_line(
+    point={
+          "filled": False,
+          "fill": "white"
+        }
+    ).encode(
+        x='yearmonthdate(time_utc):O',
+        y=alt.Y('mean(count)', title='Daily Mean'),
+        tooltip=['yearmonthdate(time_utc):O', 'mean(count)']
+    )
 
-interval = 15000
-midpoint = int(lat_sorted.shape[0]/2)
+monthly = alt.Chart(miss_ym_group, title="Unknown Regions - Monthly Count").mark_line(
+    point={
+          "filled": False,
+          "fill": "white"
+        }
+    ).encode(
+        x='yearmonth(time_utc):O',
+        y=alt.Y('sum(count)', title='Monthly Count'),
+        tooltip=['yearmonth(time_utc):O', 'sum(count)']
+    )
 
-print(midpoint)
-print(lat_sorted.shape)
-print()
-sample_df = pd.concat([lat_sorted.iloc[:interval,:], lat_sorted.iloc[midpoint:midpoint+interval,:], lat_sorted.iloc[-interval:,:]])
+daily & monthly
+# -
+
+
+
+# ### Weather Graph Demo
 
 # +
-oil_points = alt.Chart(sample_df).mark_circle(size=10).encode(
-    longitude=f'longitude:Q',
-    latitude=f'latitude:Q',
-    tooltip= 'vistastype',
-    color='vistastype:N'
+# weaeth_path = 's3://methane-capstone/data/combined-raw-data/combined-raw-facility-oil-weather.parquet.gzip'
+# wdf = pd.read_parquet(weaeth_path)
+# wdf['time_utc'] = pd.to_datetime(df['time_utc'])
+# wdf['year_month'] = df.year_month.astype(str)
+# wdf_trim = wdf[['time_utc','year_month','lat','lon','eastward_wind_at_10_metres']]
+
+# wdf_2021 = wdf_trim[wdf_trim.time_utc.dt.year > 2020]
+# print(wdf_2021.shape)
+
+# wdf_2021_samp = wdf_2021.sample(n=30000)
+
+# wind_points = alt.Chart(wdf_2021_samp, title='Wind Patterns - CA 2021').mark_circle(size=30).encode(
+#     longitude=f'lon:Q',
+#     latitude=f'lat:Q',
+#     tooltip= 'year_month:O',
+#     color=alt.Color('eastward_wind_at_10_metres:Q', scale=alt.Scale(scheme = 'redblue'))
+# )
+
+# ca_base + wind_points
+# -
+
+
+
+# +
+missing_zones = df[df['BZone'].isnull()]
+print(missing_zones.shape)
+
+miss_points = alt.Chart(missing_zones).mark_circle(size=30).encode(
+    longitude=f'lon:Q',
+    latitude=f'lat:Q',
+    tooltip= 'year_month:O',
+    color='year(time_utc):N'
 )
 
-ca_base + oil_points
-
-
-
-# +
-# from shapely.ops import cascaded_union
-# polygons = [poly1[0], poly1[1], poly2[0], poly2[1]]
-# boundary = gpd.GeoSeries(cascaded_union(polygons))
-# boundary.plot(color = 'red')
-# plt.show()
+ca_base + miss_points
 # -
 
 
 
-# ### Make a dataset that aggregates the number of facilities by lat/lon rounded breakdowns
+#
 
-gdf.head()
+# ### Reading Counts
 
-gdf.groupby('vistastype').agg({'area': ['mean','count']})
+# + active=""
+# dt_zone_count_day = df.groupby([df.time_utc.dt.date, 'BZone']).size().reset_index().rename({0:"count"}, axis=1)
+# dt_zone_count_day['time_utc'] = pd.to_datetime(dt_zone_count_day['time_utc'])
+# dt_zone_count_day
+# -
 
-gdf_oil_wells = gdf[gdf['vistastype'] == 'Oil and Gas Well']
-print(gdf_oil_wells.shape)
+dt_zone_count_month = df.set_index("time_utc").groupby([pd.Grouper(freq="M"), 'BZone']).size().reset_index().rename({0:"count"}, axis=1)
+dt_zone_count_month['time_utc'] = pd.to_datetime(dt_zone_count_month['time_utc'])
+dt_zone_count_month
 
-gdf_oil_wells.head()
+#Average number of readings per day, for each zone
+# missing_zones.set_index("time_utc").groupby(pd.Grouper(freq="Y")).size()
+zone_count_day_avg = dt_zone_count_day.groupby('BZone').agg({"count": "mean"}).sort_values('count').reset_index()
+zone_count_day_avg
 
 # +
-bucket = 'methane-capstone'
-subfolder = 'data/oil-well-data'
-s3_path = bucket+'/'+subfolder
+selector = alt.selection_multi(empty='all', fields=['BZone'])
 
-def write_to_s3(dataframe, file_name):
+base = alt.Chart(cl_gdf[['rep_city', 'BZone', 'SHAPE_Area', 'center_lat', 'center_lon']]).properties(
+    width=250,
+    height=250
+).add_selection(selector)
 
-    file_name=f'{file_name}.parquet.gzip'
-    file_path = 's3://{}/{}'.format(s3_path, file_name)
-    print(file_path)
-#     dataframe.to_parquet(file_path, compression='gzip')
+points = base.mark_point(filled=True, size=200).encode(
+    x=alt.X('center_lon', scale=alt.Scale(zero=False)),
+    y = alt.Y('center_lat', scale=alt.Scale(zero=False)),
+    tooltip=['BZone','rep_city', 'center_lat', 'center_lon'],
+    color=alt.condition(selector, 'BZone:N', alt.value('lightgray'), legend=None),
+)
 
+area_bar = base.mark_bar().encode(
+    x = alt.X('BZone:N'),
+    y = alt.Y('SHAPE_Area'),
+    tooltip=['BZone','rep_city', 'SHAPE_Area'],
+    color=alt.condition(selector, 'BZone:N', alt.value('lightgray'), legend=None),
+)
+
+month_avg_bar = alt.Chart(dt_zone_count_month).mark_bar().encode(
+    x = alt.X('BZone:N'),
+    y = alt.Y('count:Q', title='Monthly Average'),
+    tooltip=['BZone','count:Q'],
+    color=alt.condition(selector, 'BZone:N', alt.value('lightgray'), legend=None),
+).add_selection(selector)
+
+
+day_avg_bar = alt.Chart(dt_zone_count_day).mark_bar().encode(
+    x = alt.X('BZone:N'),
+    y = alt.Y('count:Q', title='Day Average'),
+    tooltip=['BZone','count:Q'],
+    color=alt.condition(selector, 'BZone:N', alt.value('lightgray'), legend=None),
+).add_selection(selector)
+
+#### #### #### #### #### 
+
+region_by_month = alt.Chart(dt_zone_count_month, title="Monthly Reading Count").mark_line(
+    point={
+          "filled": False,
+          "fill": "white"
+        }
+    ).encode(
+        x='yearmonth(time_utc):O',
+        y=alt.Y('count', title='Monthly Count'),
+        tooltip=['yearmonth(time_utc):O', 'count', 'BZone'],
+        color=alt.Color('BZone:N') #, legend=None)
+    ).transform_filter(
+        selector
+    ).add_selection(selector)
+
+
+
+#https://www.districtdatalabs.com/altair-choropleth-viz
+
+cl_choro_json = json.loads(cl_gdf.to_json())
+cl_choro_data = alt.Data(values=cl_choro_json['features'])
+
+
+
+
+
+
+
+
+
+
+
+(points & area_bar) | (region_by_month & (month_avg_bar | day_avg_bar))
+# -
+
+#
+
+# ### Understanding Methane
+
+dt_zone_meth_day = df.groupby([df.time_utc.dt.date, 'BZone']).agg({'methane_mixing_ratio_bias_corrected': 'mean'}).reset_index()
+dt_zone_meth_day['time_utc'] = pd.to_datetime(dt_zone_meth_day['time_utc'])
+dt_zone_meth_day
+
+dt_zone_meth_month = df.set_index("time_utc").groupby([pd.Grouper(freq="M"), 'BZone']).agg({'methane_mixing_ratio_bias_corrected': 'mean'}).reset_index()
+dt_zone_meth_month['time_utc'] = pd.to_datetime(dt_zone_meth_day['time_utc'])
+dt_zone_meth_month
+
+# +
+selector2 = alt.selection_multi(empty='all', fields=['BZone'])
+
+base = alt.Chart(cl_gdf[['rep_city', 'BZone', 'SHAPE_Area', 'center_lat', 'center_lon']]).properties(
+    width=250,
+    height=250
+).add_selection(selector2)
+
+avg_meth_bar = alt.Chart(dt_zone_meth_month, title='Monthly Zone Average').mark_bar().encode(
+    x = alt.X('BZone:N'),
+    y = alt.Y('mean(methane_mixing_ratio_bias_corrected):Q',
+              scale=alt.Scale(zero=False)),
+    tooltip=['BZone', 'mean(methane_mixing_ratio_bias_corrected):Q'],
+    color=alt.condition(selector2, 'BZone:N', alt.value('lightgray'), legend=None)
+).add_selection(selector2)
+
+
+points = base.mark_point(filled=True, size=200).encode(
+    x=alt.X('center_lon', scale=alt.Scale(zero=False)),
+    y = alt.Y('center_lat', scale=alt.Scale(zero=False)),
+    tooltip=['BZone','rep_city', 'center_lat', 'center_lon'],
+    color=alt.condition(selector2, 'BZone:N', alt.value('lightgray'), legend=None),
+)
+
+region_meth_month = alt.Chart(dt_zone_meth_day, title="Monthly Methane Avg").mark_line(
+    point={
+          "filled": False,
+          "fill": "white"
+        }
+    ).encode(
+        x='yearmonth(time_utc):O',
+        y=alt.Y('mean(methane_mixing_ratio_bias_corrected)', title='Monthly Methane', scale=alt.Scale(zero=False)),
+        tooltip=['yearmonth(time_utc):O', 'mean(methane_mixing_ratio_bias_corrected)', 'BZone'],
+        color=alt.Color('BZone:N')
+    ).transform_filter(
+        selector2
+    ).add_selection(selector2)
+
+(points & avg_meth_bar) | region_meth_month
 
 # -
 
-f_name = 'og_wells_rn'
-grouped_df = gdf_oil_wells.groupby(['rn_lat', 'rn_lon']).size().reset_index().rename({0: 'well_count'}, axis=1)
-write_to_s3(grouped_df, f_name)
 
 
 
 
+df.shape
 
-
-
-
+df
 
 
