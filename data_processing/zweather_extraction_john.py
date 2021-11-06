@@ -23,7 +23,7 @@
 # # !pip install netcdf4
 # # !pip install h5netcdf
 # # REMEMBER TO RESTART KERNEL
-<<<<<<< HEAD
+
 
 # +
 import traceback
@@ -89,7 +89,7 @@ def print_write(content, f_object, should_print=True):
         f_object.write(content)
         f_object.write('\n')
 
-=======
+
 # -
 
 # Initialize notebook environment.
@@ -135,7 +135,7 @@ for l in locs:
         l['lon'] = 360 + l['lon']
 print(len(locs))
 locs[:5]
->>>>>>> 259fa48... added first part of pipeline for methane and weather extraction
+
 
 # +
 from datetime import timedelta, date
@@ -153,7 +153,7 @@ for dt in daterange(start_dt, end_dt):
 
 # print(date_batches)
 
-<<<<<<< HEAD
+
 # date_list=[]
 # year_month_set=set()
 
@@ -256,7 +256,7 @@ for date in date_batches:
     import datetime
     date = datetime.date(int(year), int(month), 1)
     
-=======
+
 date_list=[]
 year_month_set=set()
 
@@ -273,7 +273,7 @@ print(year_month_set)
 # -
 
 for date in date_list:
->>>>>>> 259fa48... added first part of pipeline for methane and weather extraction
+
     #CHECK ERA5 DATA
 
     #bucket
@@ -401,7 +401,7 @@ for date in date_list:
         print("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
 
     print("time to download all variables (secs): ", time.time()-start)
-<<<<<<< HEAD
+
     
     ######################################
     # MERGE WEATHER DATA WITH METHANE DATA
@@ -503,8 +503,6 @@ for date in date_list:
             os.remove(f)
         print("deleted weather files after all weather merge completed")
     
-=======
->>>>>>> 259fa48... added first part of pipeline for methane and weather extraction
 
 # +
 # # READ FILE TO TEST THAT IT WORKED
@@ -519,7 +517,7 @@ for date in date_list:
 
 # # MERGE ERA5 WEATHER DATA WITH METHANE DATAFRAME
 
-<<<<<<< HEAD
+
 # +
 # #Create combined dataframe
 # combined_df = pd.DataFrame()
@@ -536,8 +534,7 @@ for date in date_list:
 
 # -
 
-=======
->>>>>>> 259fa48... added first part of pipeline for methane and weather extraction
+
 methane_df.head()
 
 # ### Append Weather Data
@@ -546,7 +543,7 @@ methane_df.head()
 # 1) Format extracted weather data into a format to merge to methane dataframe  
 # 2) Merge formatted data into methane dataframe
 
-<<<<<<< HEAD
+
 # ###  Weather Variables
 
 # +
@@ -561,7 +558,7 @@ bucket = 'methane-capstone'
 subfolder = 'data/pipeline-raw-data'
 s3_path_month = bucket+'/'+subfolder
 file_name='2020-12-31_meth_weather.parquet.gzip'.format(year,month)
-=======
+
 # +
 #List of Variable Names:
 variable_names = ['air_pressure_at_mean_sea_level',
@@ -675,15 +672,12 @@ bucket = 'methane-capstone'
 subfolder = 'data/weather/era5'
 s3_path_month = bucket+'/'+subfolder
 file_name='{}-{}_methane_and_weather.parquet'.format(year,month)
->>>>>>> 259fa48... added first part of pipeline for methane and weather extraction
+
 data_location = 's3://{}/{}'.format(s3_path_month, file_name)
 test_df = pd.read_parquet(data_location)
 test_df.head(2)
 
-<<<<<<< HEAD
-test_df
-=======
 
->>>>>>> 259fa48... added first part of pipeline for methane and weather extraction
+test_df
 
 
