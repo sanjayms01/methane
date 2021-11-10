@@ -452,13 +452,9 @@ print("TIME: {time:.2f} secs".format(time=(end-start)))
 # `model_metrics_tracker`
 #
 
-# +
-import boto3
-import pickle
 
-#Connect to S3 default profile
-s3 = boto3.client('s3')
-# -
+
+
 
 # ### Write out to Pickle Files
 
@@ -499,6 +495,30 @@ with open(f'zone_artifacts_{today_dt}/model_metrics_tracker.pickle', 'wb') as ha
 # -
 
 
+
+# ### Import PKL From S3
+
+# +
+import boto3
+import pickle
+
+bucket = 'methane-capstone'
+flt_path = 'models/autoencoder/zone_model_artifacts/feature_loss_tracker.pickle'
+dft_path = 'models/autoencoder/zone_model_artifacts/df_tracker.pickle'
+mmt_path = 'models/autoencoder/zone_model_artifacts/model_metrics_tracker.pickle'
+
+
+#Connect to S3 default profile
+s3client = boto3.client('s3')
+
+
+feature_loss_tracker = pickle.loads(s3client.get_object(Bucket=bucket, Key=flt_path)['Body'].read())
+df_tracker = pickle.loads(s3client.get_object(Bucket=bucket, Key=dft_path)['Body'].read())
+model_metrics_tracker = pickle.loads(s3client.get_object(Bucket=bucket, Key=mmt_path)['Body'].read())
+
+feature_cols = list(feature_loss_tracker[1]['train'].keys())
+feature_cols
+# -
 
 # ### Analysis - MATPLOTLIB
 #
@@ -641,12 +661,19 @@ bone = '#DAD5C7'
 wel_blue= '#769DB2'
 steel_blue ='#497FA8'
 dazzle_blue = '#2E5791'
-
-
 # -
 
 # ## Loss Over Time
 
+set(final_dataframes[1]['train'].columns) - set(final_dataframes[1]['val'].columns)
+
+feature_cols
+
+
+
+
+
+# +
 def plot_multi_loss(zone, split, feat_sub_cols):
 
     '''
@@ -656,7 +683,12 @@ def plot_multi_loss(zone, split, feat_sub_cols):
     '''
     
     #Data
-    df_viz = final_dataframes[zone][split]
+    df_viz = None
+    if split:
+        df_viz = final_dataframes[zone][split]
+
+    else:
+        df_viz = pd.concat([final_dataframes[zone]['train'],final_dataframes[zone]['val'],final_dataframes[zone]['test']])
     
     #Get all columns requested for analysis
     sub_cols = []
@@ -666,6 +698,8 @@ def plot_multi_loss(zone, split, feat_sub_cols):
                 sub_cols.append(col)    
     df_viz = df_viz[sub_cols].reset_index()
     
+    #Time Selection
+    brush = alt.selection(type='interval', encodings=['x'])
     
     #Create Concatenated Charts
     chart = alt.vconcat(data=df_viz)
@@ -687,11 +721,26 @@ def plot_multi_loss(zone, split, feat_sub_cols):
         points = alt.Chart(df_viz).mark_circle(size=50, tooltip=True).encode(
             x = alt.X('time_utc:O', axis=alt.Axis(labels=show_ts)),
             y= alt.Y(f'{feat_loss_col}:Q'),    
-            color=alt.Color(f'{feat_anom_col}:N', title='Anomaly',
-                               scale=alt.Scale(domain=[False, True],
-                                range=[dark_green, ven_red]))
-        )
+            color=alt.condition(brush, 
+                                    alt.Color(f'{feat_anom_col}:N',
+                                              title='Anomaly',
+                                              scale=alt.Scale(
+                                                  domain=[False, True],
+                                                  range=[dark_green, ven_red])),
+                                    alt.value('lightgray'))
+            ).add_selection(brush)
+        
+        
+# alt.Color(f'{feat_anom_col}:N', title='Anomaly',
+#                                scale=alt.Scale(domain=[False, True],
+#                                 range=[dark_green, ven_red]))
+#         ).add_selection(brush)
 
+        
+        
+        
+    
+        
         #Loss Line
         line = alt.Chart(df_viz).mark_line(color='lightgrey').encode(
             x = alt.X('time_utc:O', axis=alt.Axis(labels=show_ts)),
@@ -716,15 +765,38 @@ def plot_multi_loss(zone, split, feat_sub_cols):
                                                             anchor='middle',
                                                             color='gray',
                                                         )
+# -
 
-
-feature_cols
+# ### FINAL FEATURE LIST 
+#
+# * 'methane_mixing_ratio_bias_corrected_mean'
+# * 'reading_count'
+# * 'air_pressure_at_mean_sea_level_mean'
+# * 'eastward_wind_at_100_metres_mean'
+# * 'northward_wind_at_100_metres_mean'
+# * 'air_temperature_at_2_metres_mean'
+# * 'surface_air_pressure_mean'
+# * 'integral_wrt_time_of_surface_direct_downwelling_shortwave_flux_in_air_1hour_Accumulation_mean'
+# * 'precipitation_amount_1hour_Accumulation_mean' 
+# * 'dew_point_temperature_at_2_metres_mean'
 
 # ### Plot Loss by Zone
 
-cols = ['methane_mixing_ratio_bias_corrected_mean','reading_count','qa_val_mean']
-plot_multi_loss(1, 'val', cols)
+plot_multi_loss(14, '', feature_cols[:3])
 
+
+
+boom = final_dataframes[14]['train'][['methane_mixing_ratio_bias_corrected_mean',  'eastward_wind_at_100_metres_mean']]
+
+plt.scatter(x=boom['methane_mixing_ratio_bias_corrected_mean'] , y =boom[ 'eastward_wind_at_100_metres_mean'])
+
+plot_multi_time_series(14, 'val', feature_cols)# time_agg='yearmonth', agg='mean')
+
+examp_chart = plot_multi_loss(1, 'val', feature_cols)
+
+examp_chart.save('loss_compare.json')
+
+examp_chart
 
 
 # ### Plot Features by Zone
@@ -736,7 +808,12 @@ def plot_multi_time_series(zone, split, feat_sub_cols, time_agg='', agg=''):
         raise Exception("Must be all or none")
 
     #Data
-    df_viz = final_dataframes[zone][split]
+    df_viz = None
+    if split:
+        df_viz = final_dataframes[zone][split]
+    else:
+        df_viz = pd.concat([final_dataframes[zone]['train'],final_dataframes[zone]['val'],final_dataframes[zone]['test']])
+    
     
     #Get all columns requested for analysis
     sub_cols = []
@@ -764,7 +841,7 @@ def plot_multi_time_series(zone, split, feat_sub_cols, time_agg='', agg=''):
         y_encoding = feat_sub_cols[i-1]
         
         if agg:
-            #Loss Line
+            #Agg Value Line
             row |= alt.Chart(df_viz).mark_line(point={
                                                   "filled": False,
                                                   "fill": "white"
@@ -779,7 +856,7 @@ def plot_multi_time_series(zone, split, feat_sub_cols, time_agg='', agg=''):
             
             feat_anom_col = y_encoding+'_anomaly'
             
-            #Loss Points
+            #Value Points
             points = alt.Chart(df_viz).mark_circle(size=50, tooltip=True).encode(
                 x = alt.X(x_encoding, axis=alt.Axis(labels=False)),
                 y = alt.Y(f'{y_encoding}:Q', 
@@ -793,7 +870,7 @@ def plot_multi_time_series(zone, split, feat_sub_cols, time_agg='', agg=''):
                                     alt.value('lightgray'))
             ).add_selection(brush)
 
-            #Loss Line
+            #Value Line
             line = alt.Chart(df_viz).mark_line(color='lightgrey').encode(
                 x = alt.X(x_encoding, axis=alt.Axis(labels=False)),
                 y = alt.Y(f'{y_encoding}:Q', 
@@ -812,14 +889,10 @@ def plot_multi_time_series(zone, split, feat_sub_cols, time_agg='', agg=''):
         return chart
 
 
+len(feature_cols)
 
-# +
-feat_sub_cols = ['methane_mixing_ratio_bias_corrected_mean','reading_count',
-               'air_temperature_at_2_metres_mean', 'eastward_wind_at_10_metres_mean'
-              ]
+plot_multi_time_series(3, '', feature_cols, time_agg='yearmonth', agg='mean')
 
 
-plot_multi_time_series(3, 'train', feat_sub_cols, time_agg='yearmonth', agg='mean')
-# -
 
 
