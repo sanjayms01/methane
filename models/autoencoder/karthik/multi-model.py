@@ -380,9 +380,12 @@ for zone in zones:
     
     else:
 
-        train_zone=train_zone.interpolate(method='time')
-        val_zone=val_zone.interpolate(method='time')
-        test_zone=test_zone.interpolate(method='time')
+        train_zone=train_zone.interpolate(method='time').dropna()
+        val_zone=val_zone.interpolate(method='time').dropna()
+        test_zone=test_zone.interpolate(method='time').dropna()
+	
+	
+
     
     window_length = 7
     batch_size = 32
